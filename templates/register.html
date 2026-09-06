@@ -29,6 +29,11 @@
       <input name="village">
     </div>
 
+    <div id="buyer-fields" class="role-fields" style="display:none;">
+      <label>Delivery address</label>
+      <input name="address" placeholder="Where should the transporter deliver to?">
+    </div>
+
     <div id="transporter-fields" class="role-fields" style="display:none;">
       <div class="field-row">
         <div><label>Vehicle number</label><input name="vehicle_number" placeholder="UP16-AB-1234"></div>
@@ -57,12 +62,14 @@
 <script>
 const roleSelect = document.getElementById("role-select");
 const farmerFields = document.getElementById("farmer-fields");
+const buyerFields = document.getElementById("buyer-fields");
 const transporterFields = document.getElementById("transporter-fields");
 const nameLabel = document.getElementById("name-label");
 
 function updateFields() {
   const role = roleSelect.value;
   farmerFields.style.display = role === "farmer" ? "block" : "none";
+  buyerFields.style.display = role === "buyer" ? "block" : "none";
   transporterFields.style.display = role === "transporter" ? "block" : "none";
   nameLabel.textContent = role === "buyer" ? "Business name" : (role === "transporter" ? "Owner / company name" : "Name");
 }

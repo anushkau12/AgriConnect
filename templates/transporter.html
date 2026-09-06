@@ -16,7 +16,7 @@
       <h2>Orders assigned to you</h2>
       {% if my_orders %}
       <table>
-        <thead><tr><th>#</th><th>Crop</th><th>Qty</th><th>Status</th></tr></thead>
+        <thead><tr><th>#</th><th>Crop</th><th>Qty</th><th>Status</th><th>Route</th></tr></thead>
         <tbody>
         {% for o in my_orders %}
           <tr>
@@ -24,6 +24,13 @@
             <td>{{ o.crop_key }}</td>
             <td>{{ o.quantity_requested_kg|int }} kg</td>
             <td><span class="tag {{ o.status }}">{{ o.status.replace('_',' ') }}</span></td>
+            <td>
+              {% if o.total_distance_km %}
+                <a href="/order/{{ o.id }}">{{ o.total_distance_km }} km →</a>
+              {% else %}
+                <span class="helptext">not planned yet</span>
+              {% endif %}
+            </td>
           </tr>
         {% endfor %}
         </tbody>
@@ -32,20 +39,17 @@
       <div class="empty-state">No orders assigned yet.</div>
       {% endif %}
     </div>
-    {% else %}
+    {% elif not current_user %}
     <div class="panel">
       <h2>Your vehicle</h2>
       <p class="helptext">
-        {% if current_user %}
-          You're logged in as a {{ current_user.role }}. Only transporter accounts see assigned orders here.
-        {% else %}
-          <a href="/register">Register a vehicle</a> or <a href="/login">log in</a> to see orders assigned to you.
-        {% endif %}
+        <a href="/register">Register a vehicle</a> or <a href="/login?role=transporter">log in</a> to see orders assigned to you.
       </p>
     </div>
     {% endif %}
   </div>
 
+  {% if current_user and current_user.role == "admin" %}
   <div class="panel">
     <h2>Registered vehicles</h2>
     {% if transporters %}
@@ -65,5 +69,6 @@
     <div class="empty-state">No transporters yet.</div>
     {% endif %}
   </div>
+  {% endif %}
 </div>
 {% endblock %}

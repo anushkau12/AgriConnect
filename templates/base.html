@@ -4,17 +4,24 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{% block title %}AgriConnect{% endblock %}</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/static/img/favicon-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="/static/img/favicon-64.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/static/img/favicon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Noto+Sans:wght@400;500;600&family=Noto+Sans+Devanagari:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to content</a>
 <header class="topbar">
   <a class="brand" href="/">
-    <span class="brand-mark">ऍ</span>
+    <img class="brand-mark" src="/static/img/wheat-mark.png" alt="" width="34" height="34">
     <span class="brand-name">AgriConnect</span>
   </a>
-  <nav class="mainnav">
+  <button class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="main-nav" aria-label="Toggle menu">
+    <span></span><span></span><span></span>
+  </button>
+  <nav class="mainnav" id="main-nav">
     {% if current_user %}
       {# Logged in: only show the dashboard link for this account's own role,
          not every role's dashboard. Orders (the full order book) is admin-only. #}
@@ -45,12 +52,25 @@
   </nav>
 </header>
 
-<main class="page">
+<main class="page" id="main-content">
 {% block content %}{% endblock %}
 </main>
 
 <footer class="sitefoot">
-  <span>AgriLogix — Farm to buyer, one optimized route at a time.</span>
+  <img class="foot-mark" src="/static/img/wheat-mark.png" alt="" width="20" height="20">
+  <span>AgriConnect — Farm to buyer, one optimized route at a time.</span>
 </footer>
+
+<script>
+(function () {
+  var btn = document.getElementById('nav-toggle');
+  var nav = document.getElementById('main-nav');
+  if (!btn || !nav) return;
+  btn.addEventListener('click', function () {
+    var open = nav.classList.toggle('is-open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  });
+})();
+</script>
 </body>
 </html>

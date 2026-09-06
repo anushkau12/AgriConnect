@@ -23,24 +23,43 @@
           </div>
           <div><label>Quantity needed (kg)</label><input name="quantity_kg" type="number" step="any" required value="750"></div>
         </div>
-        <button type="submit" class="gold">Find farmers &amp; plan route</button>
+        <button type="submit" class="gold">Place order</button>
       </form>
       <div id="order-result"></div>
     </div>
-    {% else %}
+
+    <div class="panel">
+      <h2>Your orders</h2>
+      {% if my_orders %}
+      <table>
+        <thead><tr><th>#</th><th>Crop</th><th>Qty</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for o in my_orders %}
+          <tr>
+            <td><a href="/order/{{ o.id }}">#{{ o.id }}</a></td>
+            <td>{{ o.crop_key }}</td>
+            <td>{{ o.quantity_requested_kg|int }} kg</td>
+            <td><span class="tag {{ o.status }}">{{ o.status.replace('_',' ') }}</span></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <p class="helptext">Refresh this page any time to check for updates — orders left "awaiting supply" are matched automatically the moment a farmer lists enough of that crop.</p>
+      {% else %}
+      <div class="empty-state">You haven't placed any orders yet.</div>
+      {% endif %}
+    </div>
+    {% elif not current_user %}
     <div class="panel">
       <h2>Place an order</h2>
       <p class="helptext">
-        {% if current_user %}
-          You're logged in as a {{ current_user.role }}. Only buyer accounts can place orders.
-        {% else %}
-          <a href="/register">Register as a buyer</a> or <a href="/login">log in</a> to place an order.
-        {% endif %}
+        <a href="/register">Register as a buyer</a> or <a href="/login?role=buyer">log in</a> to place an order.
       </p>
     </div>
     {% endif %}
   </div>
 
+  {% if current_user and current_user.role == "admin" %}
   <div class="panel">
     <h2>Registered buyers</h2>
     {% if buyers %}
@@ -56,6 +75,7 @@
     <div class="empty-state">No buyers yet.</div>
     {% endif %}
   </div>
+  {% endif %}
 </div>
 
 <script src="/static/js/api.js"></script>

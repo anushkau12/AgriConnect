@@ -1,5 +1,5 @@
 /* ============================================================
-   AgriLogix design tokens
+   AgriConnect design tokens
    Palette pulled from mandi/harvest life, not SaaS defaults:
    - soil:     #223A26  (deep green-brown, primary/header)
    - paper:    #FBF7EC  (unbleached ledger paper background)
@@ -43,22 +43,35 @@ h1,h2,h3,.brand-name{
 a{color:var(--route);}
 p{max-width:62ch;}
 
+:focus-visible{outline:2px solid var(--turmeric);outline-offset:2px;}
+
+.skip-link{
+  position:absolute;left:-999px;top:auto;
+  background:var(--soil);color:#fff;padding:10px 16px;z-index:100;
+}
+.skip-link:focus{left:12px;top:12px;}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;}
+}
+
 /* ---------- top bar ---------- */
 .topbar{
   display:flex;align-items:center;justify-content:space-between;
-  padding:18px 32px;
+  padding:14px 32px;
   background:var(--soil);
   border-bottom:4px solid var(--turmeric);
+  position:relative;
 }
 .brand{display:flex;align-items:center;gap:10px;text-decoration:none;}
 .brand-mark{
-  font-family:'Zilla Slab',serif;font-weight:700;font-size:1.5rem;
-  color:var(--turmeric);
-  width:34px;height:34px;display:flex;align-items:center;justify-content:center;
-  border:2px solid var(--turmeric);border-radius:50%;
+  display:block;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.35));
+  transition:transform .18s ease;
 }
+.brand:hover .brand-mark{transform:rotate(-6deg) scale(1.06);}
 .brand-name{color:var(--paper);font-size:1.25rem;margin:0;letter-spacing:.02em;}
-.mainnav{display:flex;gap:26px;}
+.mainnav{display:flex;align-items:center;gap:26px;}
 .mainnav a{
   color:var(--paper-2);text-decoration:none;font-size:.95rem;font-weight:500;
   padding-bottom:3px;border-bottom:2px solid transparent;
@@ -68,11 +81,31 @@ p{max-width:62ch;}
 .navcta{background:var(--turmeric);color:var(--soil)!important;padding:5px 12px;border-radius:2px;border-bottom:none!important;}
 .navcta:hover{background:var(--turmeric-dark);color:#fff!important;}
 
+.nav-toggle{
+  display:none;flex-direction:column;justify-content:center;gap:4px;
+  width:34px;height:34px;background:transparent;border:none;cursor:pointer;padding:0;
+}
+.nav-toggle span{display:block;width:22px;height:2px;background:var(--paper);}
+
 .page{max-width:1100px;margin:0 auto;padding:40px 32px 80px;}
 
 .sitefoot{
+  display:flex;align-items:center;justify-content:center;gap:8px;
   text-align:center;padding:22px;color:var(--ink-soft);font-size:.85rem;
   border-top:1px solid var(--line);margin-top:60px;
+}
+.foot-mark{opacity:.7;}
+
+@media(max-width:760px){
+  .nav-toggle{display:flex;}
+  .mainnav{
+    display:none;position:absolute;top:100%;left:0;right:0;
+    flex-direction:column;align-items:flex-start;gap:4px;
+    background:var(--soil);padding:14px 32px 20px;border-bottom:4px solid var(--turmeric);
+  }
+  .mainnav.is-open{display:flex;}
+  .mainnav a{padding:8px 0;width:100%;}
+  .navcta{display:inline-block;}
 }
 
 /* ---------- hero / mandi board ---------- */
@@ -99,6 +132,7 @@ p{max-width:62ch;}
 .panel{
   background:#fff;border:1px solid var(--line);
   padding:26px 28px;margin-bottom:24px;
+  box-shadow:0 1px 0 rgba(34,58,38,.03);
 }
 .panel + .panel{margin-top:0;}
 .panel h2{font-size:1.15rem;border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:18px;}
@@ -110,8 +144,9 @@ label{display:block;font-size:.82rem;color:var(--ink-soft);margin:14px 0 5px;}
 input,select,textarea{
   width:100%;padding:9px 11px;border:1px solid var(--line);background:var(--paper);
   font-family:inherit;font-size:.95rem;color:var(--ink);border-radius:var(--radius);
+  transition:border-color .15s ease;
 }
-input:focus,select:focus,textarea:focus{outline:2px solid var(--turmeric);outline-offset:1px;}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--turmeric);outline-offset:1px;border-color:var(--turmeric);}
 .field-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
 
 button, .btn{
@@ -119,6 +154,7 @@ button, .btn{
   background:var(--soil);color:#fff;border:none;padding:10px 20px;
   font-family:inherit;font-size:.92rem;font-weight:500;cursor:pointer;
   border-radius:var(--radius);margin-top:16px;
+  transition:background-color .15s ease;
 }
 button:hover,.btn:hover{background:var(--soil-2);}
 button.gold{background:var(--turmeric);color:var(--soil);}
@@ -142,6 +178,7 @@ table{width:100%;border-collapse:collapse;font-size:.92rem;}
 th,td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line);}
 th{color:var(--ink-soft);font-weight:500;font-size:.78rem;text-transform:uppercase;letter-spacing:.03em;}
 tr:last-child td{border-bottom:none;}
+tbody tr:hover td{background:var(--paper-2);}
 
 .tag{
   display:inline-block;padding:2px 9px;font-size:.72rem;border-radius:20px;
@@ -153,7 +190,14 @@ tr:last-child td{border-bottom:none;}
 .tag.route_planned{background:#DCE7EE;color:var(--route);}
 .tag.picked_up{background:#E7DCF2;color:#5B3A8C;}
 .tag.delivered{background:#DFF2DC;color:#2E6B2E;}
-.tag.failed,.tag.matched_no_transporter{background:#F3DCD6;color:var(--rust);}
+.tag.failed{background:#F3DCD6;color:var(--rust);}
+.tag.awaiting_supply,.tag.matched_no_transporter{background:#EFE6C9;color:#8A6A1F;}
+.tag.rising{background:#DFF2DC;color:#2E6B2E;}
+.tag.falling{background:#F3DCD6;color:var(--rust);}
+.tag.stable,.tag.unknown{background:#E7E7E7;color:#555;}
+.tag.high{background:#DCEAE0;color:#2E6B45;}
+.tag.medium{background:#EFE6C9;color:#8A6A1F;}
+.tag.low{background:#F3DCD6;color:var(--rust);}
 
 /* ---------- route timeline ---------- */
 .route-timeline{list-style:none;margin:0;padding:0;}
@@ -169,6 +213,18 @@ tr:last-child td{border-bottom:none;}
 .route-timeline li:last-child .dot{background:var(--soil);}
 .route-timeline .stop-label{font-weight:600;color:var(--soil);}
 .route-timeline .leg{font-size:.82rem;color:var(--ink-soft);}
+.route-timeline .navigate-btn{
+  display:inline-block;margin-top:6px;font-size:.8rem;font-weight:600;
+  color:var(--route);text-decoration:none;border:1px solid var(--route);
+  border-radius:6px;padding:3px 10px;
+}
+.route-timeline .navigate-btn:hover{background:var(--route);color:var(--paper);}
+.navigate-btn-full{
+  display:inline-block;margin-top:14px;font-size:.88rem;font-weight:600;
+  color:var(--paper);background:var(--route);text-decoration:none;
+  border-radius:6px;padding:8px 14px;
+}
+.navigate-btn-full:hover{opacity:.88;}
 
 .empty-state{
   border:1px dashed var(--line);padding:30px;text-align:center;color:var(--ink-soft);

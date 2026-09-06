@@ -3,8 +3,8 @@
 {% block content %}
 <section class="hero">
   <div>
-    <h1>Farm to buyer, one optimized route.</h1>
-    <p>AgriLogix pools produce from nearby farmers, matches it to buyer orders, assigns a transporter, and lets OR-Tools plan the shortest pickup-and-delivery route — cutting empty kilometers and cost.</p>
+    <h1>Farmer to buyer, one optimized route.</h1>
+    <p>AgriConnect pools produce from nearby farmers, matches it to buyer orders, assigns a transporter, and gives the shortest pickup-and-delivery route.</p>
   </div>
   <div class="board">
     <div class="cell"><span class="num">{{ stats.farmers }}</span><span class="label">Farmers</span></div>
@@ -14,6 +14,7 @@
   </div>
 </section>
 
+{% if current_user and current_user.role == "admin" %}
 <div class="grid-2">
   <div class="panel">
     <h2>How an order flows</h2>
@@ -21,7 +22,7 @@
       <li><span class="dot"></span><span class="stop-label">Buyer places an order</span><div class="leg">e.g. 750 kg tomatoes, delivered to their yard.</div></li>
       <li><span class="dot"></span><span class="stop-label">Matching engine finds farmers</span><div class="leg">Nearest farmers with available stock are combined until the quantity is covered.</div></li>
       <li><span class="dot"></span><span class="stop-label">A transporter is assigned</span><div class="leg">Closest available vehicle with enough capacity for the combined load.</div></li>
-      <li><span class="dot"></span><span class="stop-label">OR-Tools plans the route</span><div class="leg">Depot → best pickup order → buyer, minimizing total distance.</div></li>
+      <li><span class="dot"></span><span class="stop-label">The best route is determined</span><div class="leg">Depot → best pickup order → buyer, minimizing total distance.</div></li>
       <li><span class="dot"></span><span class="stop-label">Delivery is tracked</span><div class="leg">Status moves from route planned → picked up → delivered.</div></li>
     </ol>
   </div>
@@ -43,8 +44,44 @@
       </tbody>
     </table>
     {% else %}
-    <div class="empty-state">No orders yet. Place one from the Buyers page.</div>
+    <div class="empty-state">No orders yet.</div>
     {% endif %}
   </div>
 </div>
+
+<div class="panel">
+  <h2>AI demand forecast — next 7 days</h2>
+  <p class="helptext">Machine-learning estimate (scikit-learn, trained on each crop's order history) — treat "low" confidence rows as rough guesses until more orders come in.</p>
+  {% if forecasts %}
+  <table>
+    <thead><tr><th>Crop</th><th>Trend</th><th>Forecast (7d)</th><th>Current stock</th><th>Suggest farmers list</th><th>Confidence</th></tr></thead>
+    <tbody>
+    {% for f in forecasts %}
+      <tr>
+        <td>{{ f.crop_key }}</td>
+        <td><span class="tag {{ f.trend }}">{{ f.trend }}</span></td>
+        <td>{{ f.forecast_kg if f.forecast_kg is not none else '—' }}{% if f.forecast_kg is not none %} kg{% endif %}</td>
+        <td>{{ f.current_stock_kg }} kg</td>
+        <td>{{ f.recommended_listing_kg if f.recommended_listing_kg is not none else '—' }}{% if f.recommended_listing_kg is not none %} kg{% endif %}</td>
+        <td><span class="tag {{ f.confidence }}">{{ f.confidence }}</span></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">No crops with listings or orders yet.</div>
+  {% endif %}
+</div>
+{% else %}
+<div class="panel">
+  <h2>How an order flows</h2>
+  <ol class="route-timeline">
+    <li><span class="dot"></span><span class="stop-label">Buyer places an order</span><div class="leg">e.g. 750 kg tomatoes, delivered to their yard.</div></li>
+    <li><span class="dot"></span><span class="stop-label">Matching engine finds farmers</span><div class="leg">Nearest farmers with available stock are combined until the quantity is covered.</div></li>
+    <li><span class="dot"></span><span class="stop-label">A transporter is assigned</span><div class="leg">Closest available vehicle with enough capacity for the combined load.</div></li>
+    <li><span class="dot"></span><span class="stop-label">The best route is determined</span><div class="leg">Depot → best pickup order → buyer, minimizing total distance.</div></li>
+    <li><span class="dot"></span><span class="stop-label">Delivery is tracked</span><div class="leg">Status moves from route planned → picked up → delivered.</div></li>
+  </ol>
+</div>
+{% endif %}
 {% endblock %}

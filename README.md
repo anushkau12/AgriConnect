@@ -1,4 +1,4 @@
-# AgriLogix — Smart Logistics & Route Optimization
+# AgriConnect — Smart Logistics & Route Optimization
 
 Connects farmers, buyers, and transporters. When a buyer places an order,
 the system combines produce from multiple nearby farmers, assigns a

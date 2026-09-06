@@ -6,10 +6,10 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Buyer, Order, OrderAllocation, Produce, Transporter, User
+from models import Buyer, Order, Transporter, User
 from schemas import OrderIn, OrderStatusIn
-from services.matching import find_farmers_for_order, find_available_transporter, InsufficientSupplyError
-from services.routing import optimize_route
+from services.fulfillment import attempt_fulfillment
+from services.forecasting import forecast_for_crop, forecast_all_crops
 from auth import get_current_user, require_role
 from utils import render, get_or_404
 
@@ -41,16 +41,40 @@ def orders_page(request: Request, db: Session = Depends(get_db)):
 def order_detail_page(order_id: int, request: Request, db: Session = Depends(get_db)):
     order = get_or_404(db, Order, order_id)
     route = json.loads(order.route_json) if order.route_json else None
+    if route and len(route.get("ordered_stops", [])) > 2:
+        # Deep-link so the transporter can jump straight into turn-by-turn
+        # nav for the whole route: skip the depot (stop 0) since Google Maps
+        # uses the phone's live GPS as the starting point anyway, route
+        # through every pickup as a waypoint, and end at the buyer.
+        stops = route["ordered_stops"]
+        waypoints = "|".join(f"{s['lat']},{s['lon']}" for s in stops[1:-1])
+        dest = stops[-1]
+        route["full_route_maps_url"] = (
+            "https://www.google.com/maps/dir/?api=1"
+            f"&destination={dest['lat']},{dest['lon']}"
+            f"&waypoints={waypoints}"
+            "&travelmode=driving"
+        )
 
     user = get_current_user(request, db)
     is_assigned_transporter = bool(
         user and user.role == "transporter"
         and order.transporter_id == _transporter_id_for_user(db, user)
     )
+    is_owning_buyer = bool(
+        user and user.role == "buyer" and order.buyer.user_id == user.id
+    )
     is_admin = bool(user and user.role == "admin")
-    # Anyone can see order status/cost (public tracking), but only the
-    # assigned transporter or admin sees the turn-by-turn route and the
-    # status-update control.
+
+    # Order data belongs to the buyer who placed it. Only that buyer, the
+    # transporter assigned to it, or the admin may view it at all — not
+    # "anyone with the link" or a logged-in user from an unrelated account.
+    if not (is_admin or is_assigned_transporter or is_owning_buyer):
+        return RedirectResponse(url="/login" if user is None else "/", status_code=303)
+
+    # Of those who can see the order at all, only the assigned transporter
+    # or admin also gets the turn-by-turn route and the status-update
+    # control — the buyer sees status/cost but not operational routing.
     is_operator = is_admin or is_assigned_transporter
 
     return render(request, db, "order_detail.html", {
@@ -75,73 +99,13 @@ def api_place_order(payload: OrderIn, user: User = Depends(require_role("buyer")
     db.commit()
     db.refresh(order)
 
-    # Step 1: matching
-    try:
-        allocations = find_farmers_for_order(db, crop_key, qty, buyer.lat, buyer.lon)
-    except InsufficientSupplyError as e:
-        order.status = "failed"
-        db.commit()
-        raise HTTPException(status_code=409, detail={
-            "order_id": order.id, "status": "failed", "reason": str(e),
-        })
-
-    for a in allocations:
-        db.add(OrderAllocation(
-            order_id=order.id, farmer_id=a.farmer_id, produce_id=a.produce_id,
-            allocated_qty_kg=a.allocated_qty_kg,
-        ))
-        produce = db.get(Produce, a.produce_id)
-        produce.quantity_remaining_kg -= a.allocated_qty_kg
-    order.status = "matched"
-    db.commit()
-
-    # Step 2: transporter
-    pickup_points = [(a.farmer_lat, a.farmer_lon) for a in allocations]
-    transporter = find_available_transporter(db, qty, pickup_points, (buyer.lat, buyer.lon))
-    if not transporter:
-        order.status = "matched"  # farmers matched, but no truck yet
-        db.commit()
-        return {
-            "order_id": order.id, "status": "matched_no_transporter",
-            "reason": "No available transporter has enough capacity right now.",
-        }
-
-    order.transporter_id = transporter.id
-    order.status = "transporter_assigned"
-    db.commit()
-
-    # Step 3: OR-Tools route optimization
-    pickup_labels = [a.farmer_name for a in allocations]
-    route = optimize_route(
-        depot_point=(transporter.lat, transporter.lon),
-        pickup_points=pickup_points,
-        pickup_labels=pickup_labels,
-        dropoff_point=(buyer.lat, buyer.lon),
-    )
-
-    stop_index_by_label = {s["label"]: i for i, s in enumerate(route["ordered_stops"])}
-    for a in allocations:
-        oa = (
-            db.query(OrderAllocation)
-            .filter_by(order_id=order.id, produce_id=a.produce_id)
-            .first()
-        )
-        oa.pickup_sequence = stop_index_by_label.get(a.farmer_name)
-
-    order.total_distance_km = route["total_distance_km"]
-    order.total_cost_estimate = round(route["total_distance_km"] * transporter.cost_per_km, 2)
-    order.route_json = json.dumps(route)
-    order.status = "route_planned"
-    db.commit()
-
-    return {
-        "order_id": order.id,
-        "status": order.status,
-        "transporter": transporter.name,
-        "total_distance_km": order.total_distance_km,
-        "total_cost_estimate": order.total_cost_estimate,
-        "route": route,
-    }
+    # Run the match -> transporter -> route pipeline. If there isn't enough
+    # supply for this crop right now, attempt_fulfillment doesn't fail the
+    # order — it parks it as "awaiting_supply" so it's automatically
+    # retried the moment a farmer lists more of that crop (see
+    # services.fulfillment.retry_awaiting_orders, called from
+    # routers/farmers.py after every new listing).
+    return attempt_fulfillment(db, order)
 
 
 @router.post("/api/order/{order_id}/status")
@@ -159,6 +123,20 @@ def api_update_order_status(order_id: int, payload: OrderStatusIn,
     order.status = payload.status
     db.commit()
     return {"order_id": order.id, "status": order.status}
+
+
+@router.get("/api/forecast")
+def api_forecast_all(days: int = 7, db: Session = Depends(get_db)):
+    """AI demand forecast for every crop with listings or order history.
+    Trains a scikit-learn model per crop on the fly — see
+    services/forecasting.py for the tiering logic."""
+    return forecast_all_crops(db, days=days)
+
+
+@router.get("/api/forecast/{crop_key}")
+def api_forecast_crop(crop_key: str, days: int = 7, db: Session = Depends(get_db)):
+    """Demand forecast for one crop_key over the next `days` days."""
+    return forecast_for_crop(db, crop_key.strip().lower(), days=days)
 
 
 @router.get("/api/order/{order_id}")

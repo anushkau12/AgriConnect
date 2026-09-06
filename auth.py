@@ -78,3 +78,18 @@ def require_role(*roles: str):
             raise HTTPException(status_code=403, detail="Not allowed for your role.")
         return user
     return dependency
+
+
+DASHBOARD_BY_ROLE = {
+    "admin": "/",
+    "farmer": "/farmer",
+    "buyer": "/buyer",
+    "transporter": "/transporter",
+}
+
+
+def dashboard_url_for(user: User) -> str:
+    """Where a logged-in user's own dashboard lives, for bouncing them off
+    a page meant for a different role instead of showing them a panel that
+    tells them they can't use it."""
+    return DASHBOARD_BY_ROLE.get(user.role, "/")

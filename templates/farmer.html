@@ -17,9 +17,10 @@
       <form id="produce-form">
         <div class="field-row">
           <div><label>Crop (English key)</label>
-            <select name="crop_key">
-              {% for c in crops %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
-            </select>
+            <input name="crop_key" list="crop-suggestions" placeholder="e.g. tomato" required>
+            <datalist id="crop-suggestions">
+              {% for c in crops %}<option value="{{ c }}">{% endfor %}
+            </datalist>
           </div>
           <div><label>Crop name in Hindi</label><input name="crop_name_hindi" placeholder="टमाटर"></div>
         </div>
@@ -51,20 +52,38 @@
         <button type="button" id="voice-confirm-btn" class="gold">Confirm &amp; save listing</button>
       </div>
     </div>
-    {% else %}
+    {% elif not current_user %}
     <div class="panel">
       <h2>Add produce listings</h2>
       <p class="helptext">
-        {% if current_user %}
-          You're logged in as a {{ current_user.role }}. Only farmer accounts can add produce listings.
-        {% else %}
-          <a href="/register">Register as a farmer</a> or <a href="/login">log in</a> to list your produce by typing or speaking in Hindi.
-        {% endif %}
+        <a href="/register">Register as a farmer</a> or <a href="/login?role=farmer">log in</a> to list your produce by typing or speaking in Hindi.
       </p>
+    </div>
+    {% endif %}
+
+    {% if forecasts %}
+    <div class="panel">
+      <h2>AI market demand forecast — next 7 days</h2>
+      <p class="helptext">Machine-learning estimate (scikit-learn, trained on past orders for each crop) — treat "low" confidence rows as rough guesses. Use "Suggest listing" to see what the market likely needs beyond what's already listed.</p>
+      <table>
+        <thead><tr><th>Crop</th><th>Trend</th><th>Forecast (7d)</th><th>Suggest listing</th><th>Confidence</th></tr></thead>
+        <tbody>
+        {% for f in forecasts %}
+          <tr>
+            <td>{{ f.crop_key }}</td>
+            <td><span class="tag {{ f.trend }}">{{ f.trend }}</span></td>
+            <td>{{ f.forecast_kg if f.forecast_kg is not none else '—' }}{% if f.forecast_kg is not none %} kg{% endif %}</td>
+            <td>{{ f.recommended_listing_kg if f.recommended_listing_kg is not none else '—' }}{% if f.recommended_listing_kg is not none %} kg{% endif %}</td>
+            <td><span class="tag {{ f.confidence }}">{{ f.confidence }}</span></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
     </div>
     {% endif %}
   </div>
 
+  {% if current_user and current_user.role == "admin" %}
   <div class="panel">
     <h2>Registered farmers</h2>
     {% if farmers %}
@@ -80,6 +99,7 @@
     <div class="empty-state">No farmers yet.</div>
     {% endif %}
   </div>
+  {% endif %}
 </div>
 
 <script src="/static/js/api.js"></script>

@@ -1,13 +1,15 @@
 import os
+import json
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
 from database import Base, engine, SessionLocal
-from models import User, Farmer, Produce, Buyer, Transporter
+from models import User, Farmer, Produce, Buyer, Transporter, Order
 from auth import hash_password
 
 # Routers
@@ -18,6 +20,56 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # CHANGE THIS in production — e.g. `export AGRICONNECT_SECRET_KEY=$(openssl rand -hex 32)`.
 # It signs the session cookie; anyone who has it can forge a login session.
 SECRET_KEY = os.environ.get("AGRICONNECT_SECRET_KEY", "dev-only-change-me")
+
+# Columns added to models after the table already existed somewhere. SQLite
+# doesn't add these automatically — `Base.metadata.create_all()` only
+# creates missing *tables*, never adds columns to one that's already there.
+# Without this, an old agrilogix.db throws "no such column" the instant any
+# query touches the new field (e.g. viewing an order pulls in
+# `order.buyer.address`). This is a lightweight stand-in for a real
+# migration tool (Alembic) — fine for this project's scale, and it's a
+# no-op on a freshly created database since create_all already includes
+# these columns there.
+_COLUMNS_TO_BACKFILL = [
+    ("buyers", "address", "VARCHAR(250)"),
+]
+
+
+def _backfill_missing_columns(engine):
+    inspector = inspect(engine)
+    existing_tables = set(inspector.get_table_names())
+    with engine.begin() as conn:
+        for table, column, coltype in _COLUMNS_TO_BACKFILL:
+            if table not in existing_tables:
+                continue  # brand-new db — create_all already added it correctly
+            existing_columns = {c["name"] for c in inspector.get_columns(table)}
+            if column not in existing_columns:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}"))
+                print(f"[AgriConnect] Migrated existing database: added {table}.{column}")
+
+
+def _refresh_stale_route_labels(db: Session):
+    """
+    Orders routed before the buyer-label fix have their route's final stop
+    frozen as the old generic "Buyer (delivery)" string, baked into
+    route_json at the time the route was planned — the order page only
+    ever reads that stored JSON back (see routers/orders.py), it never
+    recomputes it, so old orders would show the generic label forever
+    without this. This just patches the label text in place; it doesn't
+    touch distances/stop order, so it's cheap and doesn't need OSRM.
+    """
+    orders = db.query(Order).filter(Order.route_json.isnot(None)).all()
+    changed = 0
+    for o in orders:
+        route = json.loads(o.route_json)
+        stops = route.get("ordered_stops", [])
+        if stops and stops[-1].get("label") == "Buyer (delivery)":
+            stops[-1]["label"] = f"Buyer: {o.buyer.name}"
+            o.route_json = json.dumps(route)
+            changed += 1
+    if changed:
+        db.commit()
+        print(f"[AgriConnect] Refreshed {changed} existing order route(s) with the buyer's real name.")
 
 
 def _seed_demo_data_if_empty(db: Session):
@@ -48,7 +100,8 @@ def _seed_demo_data_if_empty(db: Session):
     ]
     db.add_all(produce)
 
-    buyers = [Buyer(name="Sunrise Mandi Traders", phone="9811111111", lat=28.50, lon=77.45)]
+    buyers = [Buyer(name="Sunrise Mandi Traders", phone="9811111111",
+                     address="Plot 14, Sunrise Mandi Yard, Sector 12, Dadri", lat=28.50, lon=77.45)]
     db.add_all(buyers)
 
     transporters = [
@@ -83,10 +136,12 @@ def _ensure_admin_account(db: Session):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    _backfill_missing_columns(engine)
     db = SessionLocal()
     try:
         _seed_demo_data_if_empty(db)
         _ensure_admin_account(db)
+        _refresh_stale_route_labels(db)
     finally:
         db.close()
     yield

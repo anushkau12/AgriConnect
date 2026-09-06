@@ -1,14 +1,22 @@
 {% extends "base.html" %}
-{% block title %}Order #{{ order.id }} — AgriLogix{% endblock %}
+{% block title %}Order #{{ order.id }} — AgriConnect{% endblock %}
 {% block content %}
 <h1>Order #{{ order.id }}</h1>
 <p><span class="tag {{ order.status }}">{{ order.status.replace('_',' ') }}</span></p>
+{% if order.status == "awaiting_supply" %}
+<div class="notice">No farmer has enough {{ order.crop_key }} listed yet to cover this order. It's queued and will be matched automatically the moment enough is listed — refresh this page to check for updates.</div>
+{% elif order.status == "matched_no_transporter" %}
+<div class="notice">Farmers have been matched, but no transporter has capacity right now. A truck will be assigned automatically once one is available.</div>
+{% endif %}
 
+{% if is_operator %}
 <div class="grid-2">
   <div class="panel">
     <h2>Order details</h2>
     <table>
       <tr><td>Buyer</td><td>{{ order.buyer.name }}</td></tr>
+      <tr><td>Buyer phone</td><td>{{ order.buyer.phone or '—' }}</td></tr>
+      <tr><td>Delivery address</td><td>{{ order.buyer.address or '—' }}</td></tr>
       <tr><td>Crop</td><td>{{ order.crop_key }}</td></tr>
       <tr><td>Quantity requested</td><td>{{ order.quantity_requested_kg }} kg</td></tr>
       <tr><td>Transporter</td><td>{{ order.transporter.name if order.transporter else '—' }}</td></tr>
@@ -19,10 +27,10 @@
     <h2 style="margin-top:26px;">Sourced from</h2>
     {% if order.allocations %}
     <table>
-      <thead><tr><th>Farmer</th><th>Qty allocated</th></tr></thead>
+      <thead><tr><th>Farmer</th><th>Village</th><th>Phone</th><th>Qty allocated</th></tr></thead>
       <tbody>
       {% for a in order.allocations %}
-        <tr><td>{{ a.farmer.name }}</td><td>{{ a.allocated_qty_kg }} kg</td></tr>
+        <tr><td>{{ a.farmer.name }}</td><td>{{ a.farmer.village or '—' }}</td><td>{{ a.farmer.phone or '—' }}</td><td>{{ a.allocated_qty_kg }} kg</td></tr>
       {% endfor %}
       </tbody>
     </table>
@@ -30,7 +38,7 @@
     <div class="empty-state">No farmers matched yet.</div>
     {% endif %}
 
-    {% if is_operator and order.status in ["route_planned","picked_up"] %}
+    {% if order.status in ["route_planned","picked_up"] %}
     <form id="advance-form" style="margin-top:20px;">
       <input type="hidden" name="order_id" value="{{ order.id }}">
       <label>Update delivery status</label>
@@ -45,24 +53,65 @@
 
   <div class="panel">
     <h2>Optimized route</h2>
-    {% if not is_operator %}
-    <div class="empty-state">Log in as the assigned transporter or admin to see the turn-by-turn route.</div>
-    {% elif route %}
+    {% if route %}
     <ul class="route-timeline">
       {% for stop in route.ordered_stops %}
       <li>
         <span class="dot"></span>
         <span class="stop-label">{{ stop.label }}</span>
-        {% if not loop.first %}<div class="leg">+{{ stop.leg_km }} km leg</div>{% endif %}
+        {% if not loop.first %}<div class="leg">+{{ stop.leg_km }} km / {{ stop.leg_min }} min</div>{% endif %}
+        {% if not loop.first %}
+        <a class="navigate-btn" target="_blank" rel="noopener"
+           href="https://www.google.com/maps/dir/?api=1&destination={{ stop.lat }},{{ stop.lon }}&travelmode=driving">
+          Navigate ↗
+        </a>
+        {% endif %}
       </li>
       {% endfor %}
     </ul>
-    <p style="margin-top:16px;"><strong>Total route distance:</strong> {{ route.total_distance_km }} km</p>
+    <p style="margin-top:16px;">
+      <strong>Total route distance:</strong> {{ route.total_distance_km }} km
+      &nbsp; <strong>Est. drive time:</strong> {{ route.total_duration_min }} min
+      {% if route.distance_source == "straight_line" %}
+        <br><span class="helptext">(straight-line estimate — live road distances unavailable)</span>
+      {% endif %}
+    </p>
+    {% if route.ordered_stops|length > 2 %}
+    <a class="navigate-btn navigate-btn-full" target="_blank" rel="noopener"
+       href="{{ route.full_route_maps_url }}">
+      Open full route in Google Maps ↗
+    </a>
+    {% endif %}
     {% else %}
     <div class="empty-state">Route not planned yet (waiting on farmer matching / transporter assignment).</div>
     {% endif %}
   </div>
 </div>
+{% else %}
+<div class="panel">
+  <h2>Order details</h2>
+  <table>
+    <tr><td>Crop</td><td>{{ order.crop_key }}</td></tr>
+    <tr><td>Quantity requested</td><td>{{ order.quantity_requested_kg }} kg</td></tr>
+    <tr><td>Total distance</td><td>{{ order.total_distance_km ~ ' km' if order.total_distance_km else '—' }}</td></tr>
+    <tr><td>Estimated cost</td><td>{{ '₹' ~ order.total_cost_estimate if order.total_cost_estimate else '—' }}</td></tr>
+  </table>
+
+  <h2 style="margin-top:26px;">Sourced from</h2>
+  {% if order.allocations %}
+  <table>
+    <thead><tr><th>Farmer</th><th>Qty allocated</th></tr></thead>
+    <tbody>
+    {% for a in order.allocations %}
+      <tr><td>{{ a.farmer.name }}</td><td>{{ a.allocated_qty_kg }} kg</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">No farmers matched yet.</div>
+  {% endif %}
+</div>
+{% endif %}
 
 <script>
 document.getElementById("advance-form")?.addEventListener("submit", async (e) => {

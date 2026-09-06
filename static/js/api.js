@@ -46,11 +46,13 @@ document.getElementById("produce-form")?.addEventListener("submit", async (e) =>
   if (ok) e.target.reset();
 });
 
-// ---- Place order (renders result inline, incl. route preview) ----
+// ---- Place order (buyer sees status + cost only — turn-by-turn route
+// planning is the transporter's job, shown on their own dashboard / the
+// order detail page when logged in as the assigned transporter or admin) ----
 document.getElementById("order-form")?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const resultBox = document.getElementById("order-result");
-  resultBox.innerHTML = `<div class="notice">Matching farmers and planning route…</div>`;
+  resultBox.innerHTML = `<div class="notice">Matching farmers and assigning a transporter…</div>`;
   const { ok, data } = await postJSON("/api/order", formToJSON(e.target));
 
   if (!ok) {
@@ -60,17 +62,15 @@ document.getElementById("order-form")?.addEventListener("submit", async (e) => {
 
   let html = `<div class="panel"><h2>Order #${data.order_id}</h2>`;
   html += `<p><span class="tag ${data.status}">${data.status.replace(/_/g, " ")}</span></p>`;
-  if (data.transporter) html += `<p><strong>Transporter:</strong> ${data.transporter}</p>`;
-  if (data.total_distance_km != null) html += `<p><strong>Total distance:</strong> ${data.total_distance_km} km &nbsp; <strong>Est. cost:</strong> ₹${data.total_cost_estimate}</p>`;
-  if (data.route) {
-    html += `<ul class="route-timeline">`;
-    data.route.ordered_stops.forEach((s, i) => {
-      html += `<li><span class="dot"></span><span class="stop-label">${s.label}</span>`;
-      if (i > 0) html += `<div class="leg">+${s.leg_km} km leg</div>`;
-      html += `</li>`;
-    });
-    html += `</ul>`;
+  if (data.status === "awaiting_supply") {
+    html += `<p>No farmer has enough of this crop listed right now — we'll match this order automatically as soon as one does. No need to re-submit.</p>`;
+  } else if (data.status === "matched_no_transporter") {
+    html += `<p>Farmers matched, but no transporter has capacity right now. This will be assigned automatically once one is available.</p>`;
   }
-  html += `<p><a href="/order/${data.order_id}">View full order →</a></p></div>`;
+  if (data.transporter) html += `<p><strong>Transporter:</strong> ${data.transporter}</p>`;
+  if (data.total_distance_km != null) {
+    html += `<p><strong>Estimated cost:</strong> ₹${data.total_cost_estimate}</p>`;
+  }
+  html += `<p><a href="/order/${data.order_id}">View order status →</a></p></div>`;
   resultBox.innerHTML = html;
 });

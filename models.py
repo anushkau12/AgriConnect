@@ -1,5 +1,5 @@
 """
-Database models for AgriLogix — Smart Logistics & Route Optimization.
+Database models for AgriConnect — Smart Logistics & Route Optimization.
 
 FastAPI has no ORM of its own, so these are plain SQLAlchemy models built on
 the `Base` declared in database.py — no `db.Model`/`db.Column` magic, and no
@@ -82,6 +82,7 @@ class Buyer(Base):
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=True)
     name = Column(String(120), nullable=False)
     phone = Column(String(20))
+    address = Column(String(250))  # free-text delivery address, shown to the assigned transporter
     lat = Column(Float, nullable=False)
     lon = Column(Float, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
