@@ -64,7 +64,6 @@
     {% if forecasts %}
     <div class="panel">
       <h2>AI market demand forecast — next 7 days</h2>
-      <p class="helptext">Machine-learning estimate (scikit-learn, trained on past orders for each crop) — treat "low" confidence rows as rough guesses. Use "Suggest listing" to see what the market likely needs beyond what's already listed.</p>
       <table>
         <thead><tr><th>Crop</th><th>Trend</th><th>Forecast (7d)</th><th>Suggest listing</th><th>Confidence</th></tr></thead>
         <tbody>
@@ -79,6 +78,32 @@
         {% endfor %}
         </tbody>
       </table>
+    </div>
+    {% endif %}
+
+    {% if my_farmer %}
+    <div class="panel">
+      <h2>Orders sourcing from you</h2>
+      {% if my_orders %}
+      <table>
+        <thead><tr><th>#</th><th>Buyer</th><th>Crop</th><th>Your qty</th><th>Transporter</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for o in my_orders %}
+          {% set mine = o.allocations|selectattr("farmer_id", "equalto", my_farmer.id)|list %}
+          <tr>
+            <td><a href="/order/{{ o.id }}">#{{ o.id }}</a></td>
+            <td>{{ o.buyer.name }}</td>
+            <td>{{ o.crop_key }}</td>
+            <td>{{ mine[0].allocated_qty_kg if mine else '—' }} kg</td>
+            <td>{{ o.transporter.name if o.transporter else '—' }}</td>
+            <td><span class="tag {{ o.status }}">{{ o.status.replace('_',' ') }}</span></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">No orders sourcing from your produce yet.</div>
+      {% endif %}
     </div>
     {% endif %}
   </div>

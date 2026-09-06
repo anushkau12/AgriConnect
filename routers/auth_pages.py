@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import User, Farmer, Buyer, Transporter
 from auth import hash_password, verify_password, log_in_user, log_out_user
+from services.fulfillment import retry_orders_needing_transporter
 from utils import render
 
 router = APIRouter(tags=["auth"])
@@ -70,6 +71,12 @@ def register_submit(
         db.add(Transporter(user_id=user.id, name=name, phone=phone, vehicle_number=vehicle_number,
                             capacity_kg=capacity_kg, lat=lat, lon=lon, cost_per_km=cost_per_km))
     db.commit()
+
+    if role == "transporter":
+        # Same idea as when a farmer lists new produce: any order that was
+        # stuck waiting on a truck should get picked up automatically now
+        # that one exists, instead of sitting stuck forever.
+        retry_orders_needing_transporter(db)
 
     # Register -> login page (not auto-logged-in) -> then your own page.
     return RedirectResponse(url="/login?registered=1", status_code=303)

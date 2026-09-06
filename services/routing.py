@@ -85,6 +85,60 @@ def _build_matrices(points):
     return _osrm_matrices(points) or _geodesic_matrices(points)
 
 
+def pickup_route_distance_km(depot_point, pickup_points):
+    """
+    Shortest total distance to start at `depot_point` and visit every point
+    in `pickup_points`, in whichever order is shortest, ending at whichever
+    pickup happens to be last — the buyer/dropoff is NOT part of this at
+    all. This exists purely so transporters can be compared against each
+    other fairly: "how far does this truck actually have to drive to
+    gather everything" rather than "how far is this truck from just the
+    first farmer" (which used to be the whole comparison and could pick a
+    truck that's close to one farmer but far from the rest).
+
+    Once a transporter is actually chosen, the real delivery route
+    (depot -> pickups -> buyer) is computed separately by optimize_route().
+
+    This is "visit every stop, start fixed, end free" — solved with
+    OR-Tools using the same heuristic search as optimize_route(), NOT by
+    checking every possible visiting order. Checking every order is O(n!),
+    which blows up fast (10 stops = 3.6 million orders to check); OR-Tools'
+    heuristics find a route that's optimal or extremely close to it in a
+    small, bounded amount of time regardless of how many stops there are.
+
+    The trick to get a "free end" (no fixed final stop) out of a solver
+    that normally wants a fixed end: add one extra virtual node with a
+    distance of 0 to and from every real point, and tell OR-Tools to end
+    there. Ending at the virtual node costs nothing extra, so the solver
+    is effectively free to stop at whichever real stop is most convenient
+    last — exactly what an open (non-round-trip) pickup route needs.
+    """
+    points = [depot_point] + list(pickup_points)
+    n = len(points)
+    if n <= 1:
+        return 0.0
+    if n == 2:
+        distance_matrix, _, _ = _build_matrices(points)
+        return round(distance_matrix[0][1] / 1000.0, 2)
+
+    real_distance_matrix, _, _ = _build_matrices(points)
+    free_end_index = n  # one virtual node appended after all real ones
+    padded_matrix = [row + [0] for row in real_distance_matrix] + [[0] * (n + 1)]
+
+    manager, routing, solution = _solve_ordering(padded_matrix, 0, free_end_index, n + 1)
+
+    total_meters = 0
+    index = routing.Start(0)
+    prev_node = manager.IndexToNode(index)
+    while not routing.IsEnd(index):
+        index = solution.Value(routing.NextVar(index))
+        node = manager.IndexToNode(index)
+        total_meters += padded_matrix[prev_node][node]  # 0 for the final hop into the virtual node
+        prev_node = node
+
+    return round(total_meters / 1000.0, 2)
+
+
 def _solve_ordering(distance_matrix, depot_index, dropoff_index, n):
     """
     Runs OR-Tools over a handful of first-solution strategies and keeps

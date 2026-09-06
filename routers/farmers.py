@@ -4,7 +4,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import Farmer, Produce, User
+from models import Farmer, Produce, User, Order, OrderAllocation
 from schemas import ProduceIn, VoiceConfirmIn
 
 from services import voice
@@ -41,11 +41,26 @@ def farmer_page(request: Request, db: Session = Depends(get_db)):
     # so it's shown to farmers and admin alike (not to logged-out visitors).
     forecasts = forecast_all_crops(db, days=7) if user and user.role in ("farmer", "admin") else []
 
+    # Orders that are actually sourcing from this farmer — who ordered,
+    # how much of it is coming from them, who's picking it up, and current
+    # status. A farmer has a real stake in this even though the buyer
+    # placed the order, so it shouldn't be admin/buyer-only information.
+    my_orders = []
+    if my_farmer:
+        my_orders = (
+            db.query(Order)
+            .join(OrderAllocation, OrderAllocation.order_id == Order.id)
+            .filter(OrderAllocation.farmer_id == my_farmer.id)
+            .distinct()
+            .order_by(Order.id.desc())
+            .all()
+        )
+
     return render(
         request, db, "farmer.html",
         {
             "farmers": farmers, "crops": crops, "voice_enabled": voice.VOICE_ENABLED,
-            "my_farmer": my_farmer, "forecasts": forecasts,
+            "my_farmer": my_farmer, "forecasts": forecasts, "my_orders": my_orders,
         },
     )
 

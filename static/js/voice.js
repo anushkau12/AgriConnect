@@ -1,4 +1,14 @@
 (function () {
+  // Small helper: set a status element's text using the theme's status
+  // classes (defined in style.css: .ok/.error/.info/.idle) instead of
+  // hardcoding browser color names, so status text always matches the
+  // site's palette.
+  function setStatus(el, text, kind) {
+    el.textContent = text;
+    el.classList.remove("ok", "error", "info", "idle");
+    el.classList.add(kind);
+  }
+
   // 1. Geolocation Logic
   const geoBtn = document.getElementById('getLocationBtn');
   if (geoBtn) {
@@ -6,26 +16,23 @@
       const status = document.getElementById('locationStatus');
       const lat = document.getElementById('lat');
       const lon = document.getElementById('lon');
+      status.classList.add("voice-status");
 
       if (!navigator.geolocation) {
-        status.style.color = "red";
-        status.textContent = "Browser not supported.";
+        setStatus(status, "Browser not supported.", "error");
         return;
       }
 
-      status.style.color = "blue";
-      status.textContent = "Locating...";
-      
+      setStatus(status, "Locating...", "info");
+
       navigator.geolocation.getCurrentPosition(
-        (pos) => { 
-          lat.value = pos.coords.latitude; 
-          lon.value = pos.coords.longitude; 
-          status.style.color = "green";
-          status.textContent = "✅ Location captured!"; 
+        (pos) => {
+          lat.value = pos.coords.latitude;
+          lon.value = pos.coords.longitude;
+          setStatus(status, "Location captured.", "ok");
         },
-        (err) => { 
-          status.style.color = "red";
-          status.textContent = "❌ Error: " + err.message; 
+        (err) => {
+          setStatus(status, "Error: " + err.message, "error");
         }
       );
     });
@@ -47,8 +54,7 @@
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   if (!SpeechRecognition) {
-    statusEl.style.color = "red";
-    statusEl.textContent = "Browser not supported. Please use Chrome.";
+    setStatus(statusEl, "Browser not supported. Please use Chrome.", "error");
     micBtn.disabled = true;
   } else {
     const recognition = new SpeechRecognition();
@@ -58,15 +64,13 @@
     micBtn.addEventListener("click", () => {
       recognition.start();
       micBtn.classList.add("recording");
-      statusEl.style.color = "blue";
-      statusEl.textContent = "Listening… speak now.";
+      setStatus(statusEl, "Listening… speak now.", "info");
     });
 
     recognition.onresult = async (event) => {
       micBtn.classList.remove("recording");
       lastTranscript = event.results[0][0].transcript;
-      statusEl.style.color = "green";
-      statusEl.textContent = "Parsing speech...";
+      setStatus(statusEl, "Parsing speech...", "info");
 
       const form = new FormData();
       form.append("raw_transcript", lastTranscript);
@@ -75,8 +79,7 @@
       const data = await res.json();
 
       if (!res.ok) {
-        statusEl.style.color = "red";
-        statusEl.textContent = (typeof data.detail === "string" ? data.detail : data.error) || "Could not parse text.";
+        setStatus(statusEl, (typeof data.detail === "string" ? data.detail : data.error) || "Could not parse text.", "error");
         return;
       }
 
@@ -85,14 +88,12 @@
       qtyInput.value = data.quantity_kg || "";
       priceInput.value = data.price_per_kg || "";
       confirmBox.style.display = "block";
-      statusEl.style.color = "black";
-      statusEl.textContent = "Check the details below and confirm.";
+      setStatus(statusEl, "Check the details below and confirm.", "idle");
     };
 
     recognition.onerror = (event) => {
       micBtn.classList.remove("recording");
-      statusEl.style.color = "red";
-      statusEl.textContent = "Microphone error: " + event.error;
+      setStatus(statusEl, "Microphone error: " + event.error, "error");
     };
   }
 
@@ -105,16 +106,15 @@
       price_per_kg: parseFloat(priceInput.value) || 0,
       transcript: lastTranscript,
     };
-    
+
     const res = await fetch("/api/produce/voice/confirm", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    
+
     if (res.ok) {
       confirmBox.style.display = "none";
-      statusEl.style.color = "green";
-      statusEl.textContent = "Listing saved. Click the mic to add another.";
+      setStatus(statusEl, "Listing saved. Click the mic to add another.", "ok");
       cropInput.value = "";
       qtyInput.value = "";
       priceInput.value = "";

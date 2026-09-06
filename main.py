@@ -9,8 +9,9 @@ from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
 from database import Base, engine, SessionLocal
-from models import User, Farmer, Produce, Buyer, Transporter, Order
+from models import User, Order
 from auth import hash_password
+from services.fulfillment import retry_orders_needing_transporter
 
 # Routers
 from routers import home, farmers, buyers, transporters, orders, auth_pages
@@ -72,52 +73,17 @@ def _refresh_stale_route_labels(db: Session):
         print(f"[AgriConnect] Refreshed {changed} existing order route(s) with the buyer's real name.")
 
 
-def _seed_demo_data_if_empty(db: Session):
-    if db.query(Farmer).count() > 0:
-        return
-
-    farmers = [
-        Farmer(name="Ramesh Yadav", phone="9800000001", village="Bilaspur", lat=28.62, lon=77.30),
-        Farmer(name="Suresh Kumar", phone="9800000002", village="Dadri", lat=28.55, lon=77.55),
-        Farmer(name="Geeta Devi", phone="9800000003", village="Sikandrabad", lat=28.45, lon=77.70),
-        Farmer(name="Manoj Sharma", phone="9800000004", village="Jewar", lat=28.13, lon=77.55),
-    ]
-    db.add_all(farmers)
-    db.commit()
-    for f in farmers:
-        db.refresh(f)
-
-    produce = [
-        Produce(farmer_id=farmers[0].id, crop_name_hindi="टमाटर", crop_name_en="tomato",
-                crop_key="tomato", quantity_kg=300, quantity_remaining_kg=300, price_per_kg=18, source="text"),
-        Produce(farmer_id=farmers[1].id, crop_name_hindi="टमाटर", crop_name_en="tomato",
-                crop_key="tomato", quantity_kg=250, quantity_remaining_kg=250, price_per_kg=17, source="voice",
-                raw_transcript="मेरे पास 250 किलो टमाटर हैं, 17 रुपये किलो"),
-        Produce(farmer_id=farmers[2].id, crop_name_hindi="टमाटर", crop_name_en="tomato",
-                crop_key="tomato", quantity_kg=200, quantity_remaining_kg=200, price_per_kg=19, source="text"),
-        Produce(farmer_id=farmers[3].id, crop_name_hindi="आलू", crop_name_en="potato",
-                crop_key="potato", quantity_kg=500, quantity_remaining_kg=500, price_per_kg=12, source="text"),
-    ]
-    db.add_all(produce)
-
-    buyers = [Buyer(name="Sunrise Mandi Traders", phone="9811111111",
-                     address="Plot 14, Sunrise Mandi Yard, Sector 12, Dadri", lat=28.50, lon=77.45)]
-    db.add_all(buyers)
-
-    transporters = [
-        Transporter(name="Rakesh Transport Co.", phone="9822222222", vehicle_number="UP16-AB-1234",
-                    capacity_kg=1000, lat=28.58, lon=77.40, cost_per_km=15),
-        Transporter(name="Highway Logistics", phone="9822222233", vehicle_number="UP16-CD-5678",
-                    capacity_kg=500, lat=28.40, lon=77.60, cost_per_km=12),
-    ]
-    db.add_all(transporters)
-    db.commit()
-
-
 def _ensure_admin_account(db: Session):
     """
     Creates the single admin account on first run. There is deliberately no
     UI path to create another admin — this is the only place it happens.
+
+    The password is never printed to the terminal — logs get copy-pasted
+    into chats, screen-shared during demos, and captured by CI, and a
+    plaintext credential sitting in scrollback is an easy way to leak it
+    even on a "local dev" project. Set ADMIN_USERNAME / ADMIN_PASSWORD
+    before first run to choose your own; otherwise see README.md for the
+    documented default and change it immediately after logging in.
     """
     if db.query(User).filter_by(role="admin").first():
         return
@@ -126,10 +92,9 @@ def _ensure_admin_account(db: Session):
     db.add(User(username=username, password_hash=hash_password(password), role="admin"))
     db.commit()
     print(
-        f"[AgriConnect] Created the admin account — username: {username!r}, "
-        f"password: {'(from ADMIN_PASSWORD env var)' if 'ADMIN_PASSWORD' in os.environ else password!r}. "
-        f"Log in at /login and change this. Set ADMIN_USERNAME / ADMIN_PASSWORD env "
-        f"vars before first run to customize instead."
+        f"[AgriConnect] Created the admin account — username: {username!r}. "
+        f"Password was NOT printed here for security "
+        f"({'set via ADMIN_PASSWORD env var — use that value' if 'ADMIN_PASSWORD' in os.environ else 'see README.md for the default, and change it after logging in'})."
     )
 
 
@@ -139,9 +104,15 @@ async def lifespan(app: FastAPI):
     _backfill_missing_columns(engine)
     db = SessionLocal()
     try:
-        _seed_demo_data_if_empty(db)
         _ensure_admin_account(db)
         _refresh_stale_route_labels(db)
+        # Catch-all safety net: retry any order still stuck at "matched"
+        # (farmers found, no truck had capacity at the time) against
+        # whatever transporters exist right now. Covers cases the
+        # register-time retry can miss — e.g. a transporter that was
+        # already registered before this fix was deployed, or the server
+        # being down at the moment a transporter registered.
+        retry_orders_needing_transporter(db)
     finally:
         db.close()
     yield

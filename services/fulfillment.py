@@ -64,11 +64,14 @@ def attempt_fulfillment(db: Session, order: Order) -> dict:
         db.commit()
         db.refresh(order)
 
-    # Step 2: transporter
+    # Step 2: transporter. Picked by whichever available truck has the
+    # shortest total driving distance to visit ALL matched farmers —
+    # not just whichever is closest to the first one — with the buyer
+    # left out of this comparison entirely (see services.matching).
     pickup_points = [(a.farmer.lat, a.farmer.lon) for a in order.allocations]
-    transporter = find_available_transporter(
-        db, order.quantity_requested_kg, pickup_points, (buyer.lat, buyer.lon)
-    )
+    pickup_labels = [a.farmer.name for a in order.allocations]
+
+    transporter = find_available_transporter(db, order.quantity_requested_kg, pickup_points)
     if not transporter:
         order.status = "matched"  # farmers matched, but no truck yet
         db.commit()
@@ -81,8 +84,8 @@ def attempt_fulfillment(db: Session, order: Order) -> dict:
     order.status = "transporter_assigned"
     db.commit()
 
-    # Step 3: OR-Tools route optimization
-    pickup_labels = [a.farmer.name for a in order.allocations]
+    # Step 3: OR-Tools route optimization — now the buyer IS part of the
+    # route, since this is the actual delivery trip the truck will drive.
     route = optimize_route(
         depot_point=(transporter.lat, transporter.lon),
         pickup_points=pickup_points,
@@ -131,4 +134,32 @@ def retry_awaiting_orders(db: Session, crop_key: str):
         .all()
     )
     for order in waiting_orders:
+        attempt_fulfillment(db, order)
+
+
+def retry_orders_needing_transporter(db: Session):
+    """
+    Call this right after a new transporter registers (or becomes
+    available). Farmers were already matched for these orders — they're
+    just stuck because no truck had enough capacity at the time — so this
+    is the transporter-side equivalent of retry_awaiting_orders above.
+
+    Without this, an order placed before any transporter existed (or
+    before one with enough capacity did) would stay stuck at "matched"
+    forever, even after a suitable truck registers a minute later — the
+    buyer would have no way to know, and no reason to re-place the order
+    since it never "failed" in the first place.
+
+    A "matched" order always already has its farmer allocations set (see
+    attempt_fulfillment) — matching and transporter-search happen in the
+    same call, so status == "matched" here specifically means "farmers
+    found, transporter search came up empty", not "not matched yet".
+    """
+    stuck_orders = (
+        db.query(Order)
+        .filter(Order.status == "matched")
+        .order_by(Order.created_at.asc())
+        .all()
+    )
+    for order in stuck_orders:
         attempt_fulfillment(db, order)

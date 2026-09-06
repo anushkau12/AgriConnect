@@ -4,7 +4,7 @@
 <h1>Create an account</h1>
 <p>Register once as a farmer, buyer, or transporter — you'll log in afterward to see your own page.</p>
 
-<div class="panel" style="max-width:520px;">
+<div class="panel panel-medium">
   {% if error %}<div class="notice error">{{ error }}</div>{% endif %}
   <form method="post" action="/register">
     <label>I am a...</label>
@@ -44,14 +44,14 @@
     </div>
 
     <div class="field-row">
-      <button type="button" id="getLocationBtn" class="btn" style="background: #e2e8f0; color: #000; padding: 5px 10px; margin-bottom: 10px;">
-        📍 Auto-Detect My Location
+      <button type="button" id="getLocationBtn" class="btn subtle">
+        📍 Auto-detect my location
       </button>
-      <span id="locationStatus" style="font-size: 0.9em; margin-left: 10px;"></span>
+      <span id="locationStatus" class="voice-status idle"></span>
     </div>
     <div class="field-row">
-      <div><label id="lat-label">Latitude</label><input id="lat" name="lat" type="number" step="any" required readonly></div>
-      <div><label id="lon-label">Longitude</label><input id="lon" name="lon" type="number" step="any" required readonly></div>
+      <div><label id="lat-label">Latitude</label><input id="lat" name="lat" type="number" step="any" required placeholder="e.g. 28.55"></div>
+      <div><label id="lon-label">Longitude</label><input id="lon" name="lon" type="number" step="any" required placeholder="e.g. 77.55"></div>
     </div>
     <p class="helptext">Farmer = your farm's location. Buyer = your yard/warehouse. Transporter = your vehicle's home base.</p>
 
@@ -84,26 +84,28 @@ updateFields();
   const lat = document.getElementById('lat');
   const lon = document.getElementById('lon');
 
+  function setStatus(text, kind) {
+    status.textContent = text;
+    status.classList.remove("ok", "error", "info", "idle");
+    status.classList.add(kind);
+  }
+
   if (!navigator.geolocation) {
-    status.style.color = "red";
-    status.textContent = "Browser not supported.";
+    setStatus("Browser not supported.", "error");
     return;
   }
 
   geoBtn.addEventListener('click', function () {
-    status.style.color = "blue";
-    status.textContent = "Locating...";
+    setStatus("Locating...", "info");
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         lat.value = pos.coords.latitude;
         lon.value = pos.coords.longitude;
-        status.style.color = "green";
-        status.textContent = "✅ Location captured!";
+        setStatus("Location captured.", "ok");
       },
       (err) => {
-        status.style.color = "red";
-        status.textContent = "❌ Error: " + err.message;
+        setStatus("Error: " + err.message, "error");
       }
     );
   });

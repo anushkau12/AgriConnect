@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 from geopy.distance import geodesic
 
 from models import Produce, Farmer, Transporter
+from services.routing import pickup_route_distance_km
 
 
 @dataclass
@@ -101,23 +102,30 @@ def find_farmers_for_order(db: Session, crop_key: str, requested_qty_kg: float,
     return allocations
 
 
-def find_available_transporter(db: Session, total_weight_kg: float, pickup_points, dropoff_point):
+def find_available_transporter(db: Session, total_weight_kg: float, pickup_points):
     """
-    Picks the best available transporter: must have enough capacity, and
-    among those, prefer the one whose depot is closest to the first pickup
-    (minimizes deadhead travel before the route even starts).
-    pickup_points: list of (lat, lon)
-    dropoff_point: (lat, lon)
+    Picks the available transporter (with enough capacity) whose total
+    driving distance to visit EVERY pickup point is smallest — not just
+    whichever truck happens to be closest to the first farmer in the list,
+    which is what this used to do and could pick a truck that's near one
+    farmer but far from the others.
+
+    The buyer's location is deliberately left out of this comparison; it
+    only matters for the actual delivery route computed afterward once a
+    transporter has been chosen (see services.routing.optimize_route).
+
+    pickup_points: list of (lat, lon), one per matched farmer.
     """
     candidates = (
         db.query(Transporter)
         .filter(Transporter.available == True, Transporter.capacity_kg >= total_weight_kg)  # noqa: E712
         .all()
     )
-
     if not candidates:
         return None
 
-    anchor = pickup_points[0] if pickup_points else dropoff_point
-    best = min(candidates, key=lambda t: geodesic(anchor, (t.lat, t.lon)).km)
+    best = min(
+        candidates,
+        key=lambda t: pickup_route_distance_km((t.lat, t.lon), pickup_points),
+    )
     return best

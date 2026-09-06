@@ -3,7 +3,7 @@
 {% block content %}
 <h1>Log in{% if role %} to your {{ role }} account{% endif %}</h1>
 
-<div class="panel" style="max-width:420px;">
+<div class="panel panel-narrow">
   {% if registered %}<div class="notice">Account created — log in below.</div>{% endif %}
   {% if error %}<div class="notice error">{{ error }}</div>{% endif %}
   <form method="post" action="/login">

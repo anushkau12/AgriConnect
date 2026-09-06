@@ -91,8 +91,10 @@
 <div class="panel">
   <h2>Order details</h2>
   <table>
+    <tr><td>Buyer</td><td>{{ order.buyer.name }}</td></tr>
     <tr><td>Crop</td><td>{{ order.crop_key }}</td></tr>
     <tr><td>Quantity requested</td><td>{{ order.quantity_requested_kg }} kg</td></tr>
+    <tr><td>Transporter</td><td>{{ order.transporter.name if order.transporter else '—' }}</td></tr>
     <tr><td>Total distance</td><td>{{ order.total_distance_km ~ ' km' if order.total_distance_km else '—' }}</td></tr>
     <tr><td>Estimated cost</td><td>{{ '₹' ~ order.total_cost_estimate if order.total_cost_estimate else '—' }}</td></tr>
   </table>

@@ -64,17 +64,25 @@ def order_detail_page(order_id: int, request: Request, db: Session = Depends(get
     is_owning_buyer = bool(
         user and user.role == "buyer" and order.buyer.user_id == user.id
     )
+    is_involved_farmer = bool(
+        user and user.role == "farmer"
+        and any(a.farmer.user_id == user.id for a in order.allocations)
+    )
     is_admin = bool(user and user.role == "admin")
 
-    # Order data belongs to the buyer who placed it. Only that buyer, the
-    # transporter assigned to it, or the admin may view it at all — not
-    # "anyone with the link" or a logged-in user from an unrelated account.
-    if not (is_admin or is_assigned_transporter or is_owning_buyer):
+    # Order data belongs to the buyer who placed it, but a farmer whose
+    # produce is actually part of this order has a legitimate stake in
+    # seeing it too — who ordered, how much of it is theirs, and who's
+    # picking it up. Only those parties (plus the assigned transporter and
+    # admin) may view it at all — not "anyone with the link" or a
+    # logged-in user from a totally unrelated account.
+    if not (is_admin or is_assigned_transporter or is_owning_buyer or is_involved_farmer):
         return RedirectResponse(url="/login" if user is None else "/", status_code=303)
 
     # Of those who can see the order at all, only the assigned transporter
     # or admin also gets the turn-by-turn route and the status-update
-    # control — the buyer sees status/cost but not operational routing.
+    # control — the buyer and any involved farmer see status/cost/who's
+    # who, but not operational routing.
     is_operator = is_admin or is_assigned_transporter
 
     return render(request, db, "order_detail.html", {

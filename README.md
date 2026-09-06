@@ -13,10 +13,9 @@ pip install -r requirements.txt
 uvicorn app:app --reload
 ```
 
-Open http://127.0.0.1:8000 — it starts pre-seeded with demo farmers, a buyer,
-and two transporters so you can place an order immediately (try 500 kg
-tomatoes from the Buyers page, buyer ID 1). Delete `agrilogix.db` any time to
-reset to a clean seeded state.
+Open http://127.0.0.1:8000 — the database starts empty. Register a farmer,
+buyer, and transporter account (or just an admin) from `/register` to get
+going; there's no pre-seeded demo data.
 
 ## Project layout
 
