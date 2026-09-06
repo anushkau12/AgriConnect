@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Register — AgriConnect{% endblock %}
+{% block content %}
+<h1>Create an account</h1>
+<p>Register once as a farmer, buyer, or transporter — you'll log in afterward to see your own page.</p>
+
+<div class="panel" style="max-width:520px;">
+  {% if error %}<div class="notice error">{{ error }}</div>{% endif %}
+  <form method="post" action="/register">
+    <label>I am a...</label>
+    <select name="role" id="role-select" required>
+      <option value="farmer">Farmer (किसान)</option>
+      <option value="buyer">Buyer</option>
+      <option value="transporter">Transporter</option>
+    </select>
+
+    <div class="field-row">
+      <div><label>Username</label><input name="username" required></div>
+      <div><label>Password</label><input name="password" type="password" required></div>
+    </div>
+
+    <div class="field-row">
+      <div><label id="name-label">Name</label><input name="name" required></div>
+      <div><label>Phone</label><input name="phone"></div>
+    </div>
+
+    <div id="farmer-fields" class="role-fields">
+      <label>Village</label>
+      <input name="village">
+    </div>
+
+    <div id="transporter-fields" class="role-fields" style="display:none;">
+      <div class="field-row">
+        <div><label>Vehicle number</label><input name="vehicle_number" placeholder="UP16-AB-1234"></div>
+        <div><label>Capacity (kg)</label><input name="capacity_kg" type="number" step="any"></div>
+      </div>
+      <label>Cost per km (₹)</label>
+      <input name="cost_per_km" type="number" step="any" value="15">
+    </div>
+
+    <div class="field-row">
+      <button type="button" id="getLocationBtn" class="btn" style="background: #e2e8f0; color: #000; padding: 5px 10px; margin-bottom: 10px;">
+        📍 Auto-Detect My Location
+      </button>
+      <span id="locationStatus" style="font-size: 0.9em; margin-left: 10px;"></span>
+    </div>
+    <div class="field-row">
+      <div><label id="lat-label">Latitude</label><input id="lat" name="lat" type="number" step="any" required readonly></div>
+      <div><label id="lon-label">Longitude</label><input id="lon" name="lon" type="number" step="any" required readonly></div>
+    </div>
+    <p class="helptext">Farmer = your farm's location. Buyer = your yard/warehouse. Transporter = your vehicle's home base.</p>
+
+    <button type="submit" class="gold">Register</button>
+  </form>
+</div>
+
+<script>
+const roleSelect = document.getElementById("role-select");
+const farmerFields = document.getElementById("farmer-fields");
+const transporterFields = document.getElementById("transporter-fields");
+const nameLabel = document.getElementById("name-label");
+
+function updateFields() {
+  const role = roleSelect.value;
+  farmerFields.style.display = role === "farmer" ? "block" : "none";
+  transporterFields.style.display = role === "transporter" ? "block" : "none";
+  nameLabel.textContent = role === "buyer" ? "Business name" : (role === "transporter" ? "Owner / company name" : "Name");
+}
+roleSelect.addEventListener("change", updateFields);
+updateFields();
+
+(function () {
+  const geoBtn = document.getElementById('getLocationBtn');
+  if (!geoBtn) return;
+
+  const status = document.getElementById('locationStatus');
+  const lat = document.getElementById('lat');
+  const lon = document.getElementById('lon');
+
+  if (!navigator.geolocation) {
+    status.style.color = "red";
+    status.textContent = "Browser not supported.";
+    return;
+  }
+
+  geoBtn.addEventListener('click', function () {
+    status.style.color = "blue";
+    status.textContent = "Locating...";
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        lat.value = pos.coords.latitude;
+        lon.value = pos.coords.longitude;
+        status.style.color = "green";
+        status.textContent = "✅ Location captured!";
+      },
+      (err) => {
+        status.style.color = "red";
+        status.textContent = "❌ Error: " + err.message;
+      }
+    );
+  });
+})();
+</script>
+{% endblock %}

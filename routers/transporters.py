@@ -1,32 +1,35 @@
-
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
-from database import Base, engine, get_db, SessionLocal
-from models import Transporter
-from schemas import TransporterIn
-from utils import templates
+from database import get_db
+from models import Transporter, Order
+from auth import get_current_user
+from utils import render
 
 
 router = APIRouter(tags=["Transporters"])
+
 #PAGES#
+
 @router.get("/transporter", response_class=HTMLResponse)
 def transporter_page(request: Request, db: Session = Depends(get_db)):
     transporters = db.query(Transporter).order_by(Transporter.id.desc()).all()
-    return templates.TemplateResponse(
-        request, "transporter.html", {"transporters": transporters}
-    )
 
-#ENDPOINTS#
-@router.post("/api/transporter/register")
-def api_register_transporter(payload: TransporterIn, db: Session = Depends(get_db)):
-    t = Transporter(
-        name=payload.name, phone=payload.phone, vehicle_number=payload.vehicle_number,
-        capacity_kg=payload.capacity_kg, lat=payload.lat, lon=payload.lon,
-        cost_per_km=payload.cost_per_km or 15.0,
+    user = get_current_user(request, db)
+    my_transporter = None
+    my_orders = []
+    if user and user.role == "transporter":
+        my_transporter = db.query(Transporter).filter_by(user_id=user.id).first()
+        if my_transporter:
+            my_orders = (
+                db.query(Order)
+                .filter_by(transporter_id=my_transporter.id)
+                .order_by(Order.id.desc())
+                .all()
+            )
+
+    return render(
+        request, db, "transporter.html",
+        {"transporters": transporters, "my_transporter": my_transporter, "my_orders": my_orders},
     )
-    db.add(t)
-    db.commit()
-    db.refresh(t)
-    return {"id": t.id, "name": t.name}

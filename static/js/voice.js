@@ -98,11 +98,7 @@
 
   // 3. Confirm Save
   confirmBtn?.addEventListener("click", async () => {
-    const farmerId = document.getElementById("voice-farmer-id").value;
-    if (!farmerId) { alert("Enter the Farmer ID first."); return; }
-    
     const body = {
-      farmer_id: parseInt(farmerId),
       crop_key: cropInput.value,
       crop_name_raw: lastTranscript,
       quantity_kg: parseFloat(qtyInput.value),

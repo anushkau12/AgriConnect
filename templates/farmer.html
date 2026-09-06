@@ -6,38 +6,15 @@
 
 <div class="grid-2">
   <div>
+    {% if my_farmer %}
     <div class="panel">
-      <h2>1. Register a farmer</h2>
-      <form id="farmer-form">
-        <div class="field-row">
-          <div><label>Name</label><input name="name" required></div>
-          <div><label>Phone</label><input name="phone"></div>
-        </div>
-        <div class="field-row">
-          <div><label>Village</label><input name="village"></div>
-          <div></div>
-        </div>
-        
-        <div class="field-row">
-          <button type="button" id="getLocationBtn" class="btn" style="background: #e2e8f0; color: #000; padding: 5px 10px; margin-bottom: 10px;">
-            📍 Auto-Detect My Location
-          </button>
-          <span id="locationStatus" style="font-size: 0.9em; margin-left: 10px;"></span>
-        </div>
-        <div class="field-row">
-          <div><label>Latitude</label><input id="lat" name="lat" type="number" step="any" required readonly></div>
-          <div><label>Longitude</label><input id="lon" name="lon" type="number" step="any" required readonly></div>
-        </div>
-        <button type="submit">Register farmer</button>
-      </form>
-      <div id="farmer-result" class="notice" style="display:none;"></div>
+      <h2>Your profile</h2>
+      <p><strong>{{ my_farmer.name }}</strong> — {{ my_farmer.village or '—' }}</p>
     </div>
 
     <div class="panel">
-      <h2>2. List produce — टाइप करें (type)</h2>
+      <h2>1. List produce — टाइप करें (type)</h2>
       <form id="produce-form">
-        <label>Farmer ID</label>
-        <input name="farmer_id" type="number" required placeholder="e.g. 1">
         <div class="field-row">
           <div><label>Crop (English key)</label>
             <select name="crop_key">
@@ -56,9 +33,7 @@
     </div>
 
     <div class="panel">
-      <h2>3. List produce — बोलकर बताएं (speak in Hindi)</h2>
-      <label>Farmer ID</label>
-      <input id="voice-farmer-id" type="number" placeholder="e.g. 1">
+      <h2>2. List produce — बोलकर बताएं (speak in Hindi)</h2>
       <div class="voice-row">
         <button type="button" class="mic-btn" id="mic-btn" title="Click to record">●</button>
         <span class="voice-status" id="voice-status">Click the mic, say e.g. "मेरे पास 100 किलो टमाटर हैं, 18 रुपये किलो"</span>
@@ -76,6 +51,18 @@
         <button type="button" id="voice-confirm-btn" class="gold">Confirm &amp; save listing</button>
       </div>
     </div>
+    {% else %}
+    <div class="panel">
+      <h2>Add produce listings</h2>
+      <p class="helptext">
+        {% if current_user %}
+          You're logged in as a {{ current_user.role }}. Only farmer accounts can add produce listings.
+        {% else %}
+          <a href="/register">Register as a farmer</a> or <a href="/login">log in</a> to list your produce by typing or speaking in Hindi.
+        {% endif %}
+      </p>
+    </div>
+    {% endif %}
   </div>
 
   <div class="panel">
@@ -96,5 +83,5 @@
 </div>
 
 <script src="/static/js/api.js"></script>
-<script src="/static/js/voice.js"></script>
+{% if my_farmer %}<script src="/static/js/voice.js"></script>{% endif %}
 {% endblock %}

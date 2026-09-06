@@ -1,36 +1,49 @@
 {% extends "base.html" %}
-{% block title %}Transporters — AgriLogix{% endblock %}
+{% block title %}Transporters — AgriConnect{% endblock %}
 {% block content %}
 <h1>Transporters</h1>
-<p>Register your vehicle's home base and capacity. AgriLogix assigns you to orders your truck can carry, closest to the pickups first.</p>
+<p>Register your vehicle's home base and capacity. AgriConnect assigns you to orders your truck can carry, closest to the pickups first.</p>
 
 <div class="grid-2">
-  <div class="panel">
-    <h2>Register a vehicle</h2>
-    <form id="transporter-form">
-      <div class="field-row">
-        <div><label>Owner / company name</label><input name="name" required></div>
-        <div><label>Phone</label><input name="phone"></div>
-      </div>
-      <div class="field-row">
-        <div><label>Vehicle number</label><input name="vehicle_number" placeholder="UP16-AB-1234"></div>
-        <div><label>Capacity (kg)</label><input name="capacity_kg" type="number" step="any" required></div>
-      </div>
-      <div class="field-row">
-        <button type="button" id="getLocationBtn" class="btn" style="background: #e2e8f0; color: #000; padding: 5px 10px; margin-bottom: 10px;">
-          📍 Auto-Detect My Location
-        </button>
-        <span id="locationStatus" style="font-size: 0.9em; margin-left: 10px;"></span>
-      </div>
-      <div class="field-row">
-        <div><label>Base latitude</label><input id="lat" name="lat" type="number" step="any" required readonly></div>
-        <div><label>Base longitude</label><input id="lon" name="lon" type="number" step="any" required readonly></div>
-      </div>
-      <label>Cost per km (₹)</label>
-      <input name="cost_per_km" type="number" step="any" value="15">
-      <button type="submit">Register vehicle</button>
-    </form>
-    <div id="transporter-result" class="notice" style="display:none;"></div>
+  <div>
+    {% if my_transporter %}
+    <div class="panel">
+      <h2>Your vehicle</h2>
+      <p><strong>{{ my_transporter.name }}</strong> — {{ my_transporter.vehicle_number or '—' }} ({{ my_transporter.capacity_kg|int }} kg)</p>
+    </div>
+
+    <div class="panel">
+      <h2>Orders assigned to you</h2>
+      {% if my_orders %}
+      <table>
+        <thead><tr><th>#</th><th>Crop</th><th>Qty</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for o in my_orders %}
+          <tr>
+            <td><a href="/order/{{ o.id }}">#{{ o.id }}</a></td>
+            <td>{{ o.crop_key }}</td>
+            <td>{{ o.quantity_requested_kg|int }} kg</td>
+            <td><span class="tag {{ o.status }}">{{ o.status.replace('_',' ') }}</span></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">No orders assigned yet.</div>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="panel">
+      <h2>Your vehicle</h2>
+      <p class="helptext">
+        {% if current_user %}
+          You're logged in as a {{ current_user.role }}. Only transporter accounts see assigned orders here.
+        {% else %}
+          <a href="/register">Register a vehicle</a> or <a href="/login">log in</a> to see orders assigned to you.
+        {% endif %}
+      </p>
+    </div>
+    {% endif %}
   </div>
 
   <div class="panel">
@@ -53,40 +66,4 @@
     {% endif %}
   </div>
 </div>
-
-<script src="/static/js/api.js"></script>
-<script>
-(function () {
-  const geoBtn = document.getElementById('getLocationBtn');
-  if (!geoBtn) return;
-
-  const status = document.getElementById('locationStatus');
-  const lat = document.getElementById('lat');
-  const lon = document.getElementById('lon');
-
-  if (!navigator.geolocation) {
-    status.style.color = "red";
-    status.textContent = "Browser not supported.";
-    return;
-  }
-
-  geoBtn.addEventListener('click', function () {
-    status.style.color = "blue";
-    status.textContent = "Locating...";
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        lat.value = pos.coords.latitude;
-        lon.value = pos.coords.longitude;
-        status.style.color = "green";
-        status.textContent = "✅ Location captured!";
-      },
-      (err) => {
-        status.style.color = "red";
-        status.textContent = "❌ Error: " + err.message;
-      }
-    );
-  });
-})();
-</script>
 {% endblock %}

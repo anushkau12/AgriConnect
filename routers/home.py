@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from models import Farmer, Buyer, Transporter, Order
-from utils import templates
+from utils import render
 
 router=APIRouter()
 
@@ -18,6 +18,6 @@ def home(request: Request, db: Session = Depends(get_db)):
         "orders": db.query(Order).count(),
     }
     recent_orders = db.query(Order).order_by(Order.id.desc()).limit(6).all()
-    return templates.TemplateResponse(
-        request, "index.html", {"stats": stats, "recent_orders": recent_orders}
+    return render(
+        request, db, "index.html", {"stats": stats, "recent_orders": recent_orders}
     )

@@ -36,16 +36,6 @@ function errorMessage(data, fallback) {
   return fallback;
 }
 
-// ---- Farmer registration ----
-document.getElementById("farmer-form")?.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const { ok, data } = await postJSON("/api/farmer/register", formToJSON(e.target));
-  const box = document.getElementById("farmer-result");
-  if (ok) showNotice(box, `Registered farmer #${data.id} — use this ID to add produce.`);
-  else showNotice(box, errorMessage(data, "Could not register farmer."), true);
-  if (ok) e.target.reset();
-});
-
 // ---- Typed produce listing ----
 document.getElementById("produce-form")?.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -53,26 +43,6 @@ document.getElementById("produce-form")?.addEventListener("submit", async (e) =>
   const box = document.getElementById("produce-result");
   if (ok) showNotice(box, `Listing saved: ${data.quantity_kg} kg of ${data.crop_key}.`);
   else showNotice(box, errorMessage(data, "Could not save listing."), true);
-  if (ok) e.target.reset();
-});
-
-// ---- Buyer registration ----
-document.getElementById("buyer-form")?.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const { ok, data } = await postJSON("/api/buyer/register", formToJSON(e.target));
-  const box = document.getElementById("buyer-result");
-  if (ok) showNotice(box, `Registered buyer #${data.id} — use this ID to place an order.`);
-  else showNotice(box, errorMessage(data, "Could not register buyer."), true);
-  if (ok) e.target.reset();
-});
-
-// ---- Transporter registration ----
-document.getElementById("transporter-form")?.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const { ok, data } = await postJSON("/api/transporter/register", formToJSON(e.target));
-  const box = document.getElementById("transporter-result");
-  if (ok) showNotice(box, `Registered vehicle #${data.id}.`);
-  else showNotice(box, errorMessage(data, "Could not register vehicle."), true);
   if (ok) e.target.reset();
 });
 

@@ -1,6 +1,12 @@
 """
 Pydantic schemas for request validation.
 
+Registration (Farmer/Buyer/Transporter sign-up) uses plain Form(...) fields
+in routers/auth_pages.py instead of these, since it's a normal HTML form
+post. These schemas cover the JSON API endpoints used once you're logged
+in — farmer_id / buyer_id are no longer accepted from the client; they're
+derived from the logged-in user's own profile.
+
 This is the biggest day-to-day difference from Flask: instead of
 `data = request.get_json(force=True); data["name"]` (which throws an opaque
 KeyError/500 if a field is missing or the wrong type), FastAPI validates the
@@ -11,16 +17,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 
-class FarmerIn(BaseModel):
-    name: str
-    phone: Optional[str] = None
-    village: Optional[str] = None
-    lat: float
-    lon: float
-
-
 class ProduceIn(BaseModel):
-    farmer_id: int
     crop_key: str
     crop_name_hindi: Optional[str] = None
     quantity_kg: float
@@ -28,7 +25,6 @@ class ProduceIn(BaseModel):
 
 
 class VoiceConfirmIn(BaseModel):
-    farmer_id: int
     crop_key: str
     crop_name_raw: Optional[str] = None
     quantity_kg: float
@@ -36,25 +32,7 @@ class VoiceConfirmIn(BaseModel):
     transcript: Optional[str] = None
 
 
-class BuyerIn(BaseModel):
-    name: str
-    phone: Optional[str] = None
-    lat: float
-    lon: float
-
-
-class TransporterIn(BaseModel):
-    name: str
-    phone: Optional[str] = None
-    vehicle_number: Optional[str] = None
-    capacity_kg: float
-    lat: float
-    lon: float
-    cost_per_km: Optional[float] = 15.0
-
-
 class OrderIn(BaseModel):
-    buyer_id: int
     crop_key: str
     quantity_kg: float
 

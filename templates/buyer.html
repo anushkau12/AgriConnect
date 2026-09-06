@@ -1,38 +1,20 @@
 {% extends "base.html" %}
-{% block title %}Buyers — AgriLogix{% endblock %}
+{% block title %}Buyers — AgriConnect{% endblock %}
 {% block content %}
 <h1>Buyers</h1>
 <p>Register your yard/warehouse location once, then place an order for the quantity you need.</p>
 
 <div class="grid-2">
   <div>
+    {% if my_buyer %}
     <div class="panel">
-      <h2>1. Register as a buyer</h2>
-      <form id="buyer-form">
-        <div class="field-row">
-          <div><label>Business name</label><input name="name" required></div>
-          <div><label>Phone</label><input name="phone"></div>
-        </div>
-        <div class="field-row">
-          <button type="button" id="getLocationBtn" class="btn" style="background: #e2e8f0; color: #000; padding: 5px 10px; margin-bottom: 10px;">
-            📍 Auto-Detect My Location
-          </button>
-          <span id="locationStatus" style="font-size: 0.9em; margin-left: 10px;"></span>
-        </div>
-        <div class="field-row">
-          <div><label>Latitude</label><input id="lat" name="lat" type="number" step="any" required readonly></div>
-          <div><label>Longitude</label><input id="lon" name="lon" type="number" step="any" required readonly></div>
-        </div>
-        <button type="submit">Register buyer</button>
-      </form>
-      <div id="buyer-result" class="notice" style="display:none;"></div>
+      <h2>Your profile</h2>
+      <p><strong>{{ my_buyer.name }}</strong> — {{ '%.3f'|format(my_buyer.lat) }}, {{ '%.3f'|format(my_buyer.lon) }}</p>
     </div>
 
     <div class="panel">
-      <h2>2. Place an order</h2>
+      <h2>Place an order</h2>
       <form id="order-form">
-        <label>Buyer ID</label>
-        <input name="buyer_id" type="number" required placeholder="e.g. 1">
         <div class="field-row">
           <div><label>Crop</label>
             <select name="crop_key">
@@ -45,6 +27,18 @@
       </form>
       <div id="order-result"></div>
     </div>
+    {% else %}
+    <div class="panel">
+      <h2>Place an order</h2>
+      <p class="helptext">
+        {% if current_user %}
+          You're logged in as a {{ current_user.role }}. Only buyer accounts can place orders.
+        {% else %}
+          <a href="/register">Register as a buyer</a> or <a href="/login">log in</a> to place an order.
+        {% endif %}
+      </p>
+    </div>
+    {% endif %}
   </div>
 
   <div class="panel">
@@ -65,38 +59,4 @@
 </div>
 
 <script src="/static/js/api.js"></script>
-<script>
-(function () {
-  const geoBtn = document.getElementById('getLocationBtn');
-  if (!geoBtn) return;
-
-  const status = document.getElementById('locationStatus');
-  const lat = document.getElementById('lat');
-  const lon = document.getElementById('lon');
-
-  if (!navigator.geolocation) {
-    status.style.color = "red";
-    status.textContent = "Browser not supported.";
-    return;
-  }
-
-  geoBtn.addEventListener('click', function () {
-    status.style.color = "blue";
-    status.textContent = "Locating...";
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        lat.value = pos.coords.latitude;
-        lon.value = pos.coords.longitude;
-        status.style.color = "green";
-        status.textContent = "✅ Location captured!";
-      },
-      (err) => {
-        status.style.color = "red";
-        status.textContent = "❌ Error: " + err.message;
-      }
-    );
-  });
-})();
-</script>
 {% endblock %}

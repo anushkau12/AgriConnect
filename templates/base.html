@@ -15,10 +15,33 @@
     <span class="brand-name">AgriConnect</span>
   </a>
   <nav class="mainnav">
-    <a href="/farmer">Farmers</a>
-    <a href="/buyer">Buyers</a>
-    <a href="/transporter">Transporters</a>
-    <a href="/orders">Orders</a>
+    {% if current_user %}
+      {# Logged in: only show the dashboard link for this account's own role,
+         not every role's dashboard. Orders (the full order book) is admin-only. #}
+      {% if current_user.role == "farmer" %}
+        <a href="/farmer">Farmer Dashboard</a>
+      {% elif current_user.role == "buyer" %}
+        <a href="/buyer">Buyer Dashboard</a>
+      {% elif current_user.role == "transporter" %}
+        <a href="/transporter">Transporter Dashboard</a>
+      {% elif current_user.role == "admin" %}
+        <a href="/farmer">Farmers</a>
+        <a href="/buyer">Buyers</a>
+        <a href="/transporter">Transporters</a>
+      {% endif %}
+      {% if current_user.role == "admin" %}
+        <a href="/orders">Orders</a>
+      {% endif %}
+      <span class="navmeta">{{ current_user.username }} ({{ current_user.role }})</span>
+      <a href="/logout">Log out</a>
+    {% else %}
+      {# Logged out: show all three so visitors can see what AgriConnect offers. #}
+      <a href="/farmer">Farmers</a>
+      <a href="/buyer">Buyers</a>
+      <a href="/transporter">Transporters</a>
+      <a href="/login">Log in</a>
+      <a href="/register" class="navcta">Register</a>
+    {% endif %}
   </nav>
 </header>
 

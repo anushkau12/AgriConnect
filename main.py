@@ -3,15 +3,21 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 from sqlalchemy.orm import Session
 
 from database import Base, engine, SessionLocal
-from models import Farmer, Produce, Buyer, Transporter
+from models import User, Farmer, Produce, Buyer, Transporter
+from auth import hash_password
 
 # Routers
-from routers import home, farmers, buyers, transporters, orders
+from routers import home, farmers, buyers, transporters, orders, auth_pages
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# CHANGE THIS in production — e.g. `export AGRICONNECT_SECRET_KEY=$(openssl rand -hex 32)`.
+# It signs the session cookie; anyone who has it can forge a login session.
+SECRET_KEY = os.environ.get("AGRICONNECT_SECRET_KEY", "dev-only-change-me")
 
 
 def _seed_demo_data_if_empty(db: Session):
@@ -55,12 +61,32 @@ def _seed_demo_data_if_empty(db: Session):
     db.commit()
 
 
+def _ensure_admin_account(db: Session):
+    """
+    Creates the single admin account on first run. There is deliberately no
+    UI path to create another admin — this is the only place it happens.
+    """
+    if db.query(User).filter_by(role="admin").first():
+        return
+    username = os.environ.get("ADMIN_USERNAME", "admin")
+    password = os.environ.get("ADMIN_PASSWORD", "changeme123")
+    db.add(User(username=username, password_hash=hash_password(password), role="admin"))
+    db.commit()
+    print(
+        f"[AgriConnect] Created the admin account — username: {username!r}, "
+        f"password: {'(from ADMIN_PASSWORD env var)' if 'ADMIN_PASSWORD' in os.environ else password!r}. "
+        f"Log in at /login and change this. Set ADMIN_USERNAME / ADMIN_PASSWORD env "
+        f"vars before first run to customize instead."
+    )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
         _seed_demo_data_if_empty(db)
+        _ensure_admin_account(db)
     finally:
         db.close()
     yield
@@ -68,9 +94,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="AgriConnect", lifespan=lifespan)
 
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
 # Mount Routers
+app.include_router(auth_pages.router)
 app.include_router(home.router)
 app.include_router(farmers.router)
 app.include_router(buyers.router)

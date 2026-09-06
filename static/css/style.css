@@ -64,6 +64,9 @@ p{max-width:62ch;}
   padding-bottom:3px;border-bottom:2px solid transparent;
 }
 .mainnav a:hover{border-bottom-color:var(--turmeric);color:#fff;}
+.navmeta{color:var(--paper-2);font-size:.85rem;opacity:.75;padding-bottom:3px;}
+.navcta{background:var(--turmeric);color:var(--soil)!important;padding:5px 12px;border-radius:2px;border-bottom:none!important;}
+.navcta:hover{background:var(--turmeric-dark);color:#fff!important;}
 
 .page{max-width:1100px;margin:0 auto;padding:40px 32px 80px;}
 

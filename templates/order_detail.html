@@ -30,7 +30,7 @@
     <div class="empty-state">No farmers matched yet.</div>
     {% endif %}
 
-    {% if order.status in ["route_planned","picked_up"] %}
+    {% if is_operator and order.status in ["route_planned","picked_up"] %}
     <form id="advance-form" style="margin-top:20px;">
       <input type="hidden" name="order_id" value="{{ order.id }}">
       <label>Update delivery status</label>
@@ -45,7 +45,9 @@
 
   <div class="panel">
     <h2>Optimized route</h2>
-    {% if route %}
+    {% if not is_operator %}
+    <div class="empty-state">Log in as the assigned transporter or admin to see the turn-by-turn route.</div>
+    {% elif route %}
     <ul class="route-timeline">
       {% for stop in route.ordered_stops %}
       <li>

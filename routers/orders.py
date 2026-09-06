@@ -1,47 +1,71 @@
 import json
-import os
 
 from fastapi import APIRouter, Depends, Request, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from sqlalchemy.orm import Session
 
-from database import Base, engine, get_db, SessionLocal
-from models import Produce, Buyer, Order, OrderAllocation
+from database import get_db
+from models import Buyer, Order, OrderAllocation, Produce, Transporter, User
 from schemas import OrderIn, OrderStatusIn
 from services.matching import find_farmers_for_order, find_available_transporter, InsufficientSupplyError
 from services.routing import optimize_route
-from utils import templates
+from auth import get_current_user, require_role
+from utils import render, get_or_404
 
 
 router = APIRouter(tags=["Orders"])
 
 
+def _transporter_id_for_user(db: Session, user: User):
+    t = db.query(Transporter).filter_by(user_id=user.id).first()
+    return t.id if t else None
+
+
 #PAGES#
 @router.get("/orders", response_class=HTMLResponse)
 def orders_page(request: Request, db: Session = Depends(get_db)):
+    # Full order book (farmer allocations, buyers, transporters, costs) is
+    # sensitive business data — only the admin gets the list view. Everyone
+    # else is bounced to login/home instead of seeing every order in the system.
+    user = get_current_user(request, db)
+    if user is None:
+        return RedirectResponse(url="/login", status_code=303)
+    if user.role != "admin":
+        return RedirectResponse(url="/", status_code=303)
     orders = db.query(Order).order_by(Order.id.desc()).all()
-    return templates.TemplateResponse(request, "orders.html", {"orders": orders})
+    return render(request, db, "orders.html", {"orders": orders})
 
 
 @router.get("/order/{order_id}", response_class=HTMLResponse)
 def order_detail_page(order_id: int, request: Request, db: Session = Depends(get_db)):
-    order = db.get(Order, order_id)
-    if not order:
-        raise HTTPException(status_code=404, detail=f"Order {order_id} not found")
-        
+    order = get_or_404(db, Order, order_id)
     route = json.loads(order.route_json) if order.route_json else None
-    return templates.TemplateResponse(
-        request, "order_detail.html", {"order": order, "route": route}
+
+    user = get_current_user(request, db)
+    is_assigned_transporter = bool(
+        user and user.role == "transporter"
+        and order.transporter_id == _transporter_id_for_user(db, user)
     )
+    is_admin = bool(user and user.role == "admin")
+    # Anyone can see order status/cost (public tracking), but only the
+    # assigned transporter or admin sees the turn-by-turn route and the
+    # status-update control.
+    is_operator = is_admin or is_assigned_transporter
+
+    return render(request, db, "order_detail.html", {
+        "order": order, "route": route if is_operator else None, "is_operator": is_operator,
+    })
+
 
 #ENDPOINTS#
 @router.post("/api/order")
-def api_place_order(payload: OrderIn, db: Session = Depends(get_db)):
-    buyer = db.get(Buyer, payload.buyer_id)
+def api_place_order(payload: OrderIn, user: User = Depends(require_role("buyer")),
+                     db: Session = Depends(get_db)):
+    buyer = db.query(Buyer).filter_by(user_id=user.id).first()
     if not buyer:
-        raise HTTPException(status_code=404, detail=f"Buyer {payload.buyer_id} not found")
-        
+        raise HTTPException(status_code=404, detail="No buyer profile linked to this account.")
+
     crop_key = payload.crop_key.strip().lower()
     qty = payload.quantity_kg
 
@@ -121,12 +145,14 @@ def api_place_order(payload: OrderIn, db: Session = Depends(get_db)):
 
 
 @router.post("/api/order/{order_id}/status")
-def api_update_order_status(order_id: int, payload: OrderStatusIn, db: Session = Depends(get_db)):
-    """Advance delivery status: route_planned -> picked_up -> delivered."""
-    order = db.get(Order, order_id)
-    if not order:
-        raise HTTPException(status_code=404, detail=f"Order {order_id} not found")
-        
+def api_update_order_status(order_id: int, payload: OrderStatusIn,
+                             user: User = Depends(require_role("transporter", "admin")),
+                             db: Session = Depends(get_db)):
+    """Advance delivery status. Only the assigned transporter (or admin) may do this."""
+    order = get_or_404(db, Order, order_id)
+    if user.role == "transporter" and order.transporter_id != _transporter_id_for_user(db, user):
+        raise HTTPException(status_code=403, detail="This order isn't assigned to you.")
+
     allowed = {"route_planned", "picked_up", "delivered", "failed"}
     if payload.status not in allowed:
         raise HTTPException(status_code=400, detail=f"status must be one of {allowed}")
@@ -137,10 +163,7 @@ def api_update_order_status(order_id: int, payload: OrderStatusIn, db: Session =
 
 @router.get("/api/order/{order_id}")
 def api_get_order(order_id: int, db: Session = Depends(get_db)):
-    order = db.get(Order, order_id)
-    if not order:
-        raise HTTPException(status_code=404, detail=f"Order {order_id} not found")
-        
+    order = get_or_404(db, Order, order_id)
     return {
         "id": order.id, "status": order.status,
         "crop_key": order.crop_key, "quantity_requested_kg": order.quantity_requested_kg,

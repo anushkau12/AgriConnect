@@ -23,9 +23,26 @@ from sqlalchemy.orm import relationship
 from database import Base
 
 
+class User(Base):
+    """
+    Login account. Every Farmer/Buyer/Transporter profile is owned by
+    exactly one User (via the user_id FK on each of those tables) — this is
+    what lets us scope "my listings" / "my orders" / "my routes" to
+    whoever's logged in, and lets the admin account see everything without
+    owning any profile itself.
+    """
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True)
+    username = Column(String(80), unique=True, nullable=False, index=True)
+    password_hash = Column(String(200), nullable=False)
+    role = Column(String(20), nullable=False)  # "admin" | "farmer" | "buyer" | "transporter"
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class Farmer(Base):
     __tablename__ = "farmers"
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=True)
     name = Column(String(120), nullable=False)
     phone = Column(String(20))
     village = Column(String(120))
@@ -33,6 +50,7 @@ class Farmer(Base):
     lon = Column(Float, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    user = relationship("User")
     produce = relationship("Produce", back_populates="farmer")
 
 
@@ -61,16 +79,20 @@ class Produce(Base):
 class Buyer(Base):
     __tablename__ = "buyers"
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=True)
     name = Column(String(120), nullable=False)
     phone = Column(String(20))
     lat = Column(Float, nullable=False)
     lon = Column(Float, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    user = relationship("User")
+
 
 class Transporter(Base):
     __tablename__ = "transporters"
     id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=True)
     name = Column(String(120), nullable=False)
     phone = Column(String(20))
     vehicle_number = Column(String(40))
@@ -79,6 +101,8 @@ class Transporter(Base):
     lon = Column(Float, nullable=False)
     available = Column(Boolean, default=True)
     cost_per_km = Column(Float, default=15.0)
+
+    user = relationship("User")
 
 
 class Order(Base):
