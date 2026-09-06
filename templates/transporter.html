@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Transporters — AgriLogix{% endblock %}
+{% block content %}
+<h1>Transporters</h1>
+<p>Register your vehicle's home base and capacity. AgriLogix assigns you to orders your truck can carry, closest to the pickups first.</p>
+
+<div class="grid-2">
+  <div class="panel">
+    <h2>Register a vehicle</h2>
+    <form id="transporter-form">
+      <div class="field-row">
+        <div><label>Owner / company name</label><input name="name" required></div>
+        <div><label>Phone</label><input name="phone"></div>
+      </div>
+      <div class="field-row">
+        <div><label>Vehicle number</label><input name="vehicle_number" placeholder="UP16-AB-1234"></div>
+        <div><label>Capacity (kg)</label><input name="capacity_kg" type="number" step="any" required></div>
+      </div>
+      <div class="field-row">
+        <button type="button" id="getLocationBtn" class="btn" style="background: #e2e8f0; color: #000; padding: 5px 10px; margin-bottom: 10px;">
+          📍 Auto-Detect My Location
+        </button>
+        <span id="locationStatus" style="font-size: 0.9em; margin-left: 10px;"></span>
+      </div>
+      <div class="field-row">
+        <div><label>Base latitude</label><input id="lat" name="lat" type="number" step="any" required readonly></div>
+        <div><label>Base longitude</label><input id="lon" name="lon" type="number" step="any" required readonly></div>
+      </div>
+      <label>Cost per km (₹)</label>
+      <input name="cost_per_km" type="number" step="any" value="15">
+      <button type="submit">Register vehicle</button>
+    </form>
+    <div id="transporter-result" class="notice" style="display:none;"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Registered vehicles</h2>
+    {% if transporters %}
+    <table>
+      <thead><tr><th>ID</th><th>Name</th><th>Vehicle</th><th>Capacity</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for t in transporters %}
+        <tr>
+          <td>{{ t.id }}</td><td>{{ t.name }}</td><td>{{ t.vehicle_number or '—' }}</td>
+          <td>{{ t.capacity_kg|int }} kg</td>
+          <td>{% if t.available %}<span class="tag matched">Available</span>{% else %}<span class="tag failed">Busy</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No transporters yet.</div>
+    {% endif %}
+  </div>
+</div>
+
+<script src="/static/js/api.js"></script>
+<script>
+(function () {
+  const geoBtn = document.getElementById('getLocationBtn');
+  if (!geoBtn) return;
+
+  const status = document.getElementById('locationStatus');
+  const lat = document.getElementById('lat');
+  const lon = document.getElementById('lon');
+
+  if (!navigator.geolocation) {
+    status.style.color = "red";
+    status.textContent = "Browser not supported.";
+    return;
+  }
+
+  geoBtn.addEventListener('click', function () {
+    status.style.color = "blue";
+    status.textContent = "Locating...";
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        lat.value = pos.coords.latitude;
+        lon.value = pos.coords.longitude;
+        status.style.color = "green";
+        status.textContent = "✅ Location captured!";
+      },
+      (err) => {
+        status.style.color = "red";
+        status.textContent = "❌ Error: " + err.message;
+      }
+    );
+  });
+})();
+</script>
+{% endblock %}

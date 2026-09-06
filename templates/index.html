@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}AgriConnect — Smart Logistics{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <h1>Farm to buyer, one optimized route.</h1>
+    <p>AgriLogix pools produce from nearby farmers, matches it to buyer orders, assigns a transporter, and lets OR-Tools plan the shortest pickup-and-delivery route — cutting empty kilometers and cost.</p>
+  </div>
+  <div class="board">
+    <div class="cell"><span class="num">{{ stats.farmers }}</span><span class="label">Farmers</span></div>
+    <div class="cell"><span class="num">{{ stats.buyers }}</span><span class="label">Buyers</span></div>
+    <div class="cell"><span class="num">{{ stats.transporters }}</span><span class="label">Transporters</span></div>
+    <div class="cell"><span class="num">{{ stats.orders }}</span><span class="label">Orders</span></div>
+  </div>
+</section>
+
+<div class="grid-2">
+  <div class="panel">
+    <h2>How an order flows</h2>
+    <ol class="route-timeline">
+      <li><span class="dot"></span><span class="stop-label">Buyer places an order</span><div class="leg">e.g. 750 kg tomatoes, delivered to their yard.</div></li>
+      <li><span class="dot"></span><span class="stop-label">Matching engine finds farmers</span><div class="leg">Nearest farmers with available stock are combined until the quantity is covered.</div></li>
+      <li><span class="dot"></span><span class="stop-label">A transporter is assigned</span><div class="leg">Closest available vehicle with enough capacity for the combined load.</div></li>
+      <li><span class="dot"></span><span class="stop-label">OR-Tools plans the route</span><div class="leg">Depot → best pickup order → buyer, minimizing total distance.</div></li>
+      <li><span class="dot"></span><span class="stop-label">Delivery is tracked</span><div class="leg">Status moves from route planned → picked up → delivered.</div></li>
+    </ol>
+  </div>
+
+  <div class="panel">
+    <h2>Recent orders</h2>
+    {% if recent_orders %}
+    <table>
+      <thead><tr><th>#</th><th>Crop</th><th>Qty</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for o in recent_orders %}
+        <tr>
+          <td><a href="/order/{{ o.id }}">#{{ o.id }}</a></td>
+          <td>{{ o.crop_key }}</td>
+          <td>{{ o.quantity_requested_kg|int }} kg</td>
+          <td><span class="tag {{ o.status }}">{{ o.status.replace('_',' ') }}</span></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No orders yet. Place one from the Buyers page.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

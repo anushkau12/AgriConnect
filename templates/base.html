@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}AgriConnect{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@500;600;700&family=Noto+Sans:wght@400;500;600&family=Noto+Sans+Devanagari:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/">
+    <span class="brand-mark">ऍ</span>
+    <span class="brand-name">AgriConnect</span>
+  </a>
+  <nav class="mainnav">
+    <a href="/farmer">Farmers</a>
+    <a href="/buyer">Buyers</a>
+    <a href="/transporter">Transporters</a>
+    <a href="/orders">Orders</a>
+  </nav>
+</header>
+
+<main class="page">
+{% block content %}{% endblock %}
+</main>
+
+<footer class="sitefoot">
+  <span>AgriLogix — Farm to buyer, one optimized route at a time.</span>
+</footer>
+</body>
+</html>

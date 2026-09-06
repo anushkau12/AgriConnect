@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Orders — AgriLogix{% endblock %}
+{% block content %}
+<h1>Orders</h1>
+<div class="panel">
+  {% if orders %}
+  <table>
+    <thead><tr><th>#</th><th>Buyer</th><th>Crop</th><th>Qty</th><th>Distance</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for o in orders %}
+      <tr>
+        <td><a href="/order/{{ o.id }}">#{{ o.id }}</a></td>
+        <td>{{ o.buyer.name }}</td>
+        <td>{{ o.crop_key }}</td>
+        <td>{{ o.quantity_requested_kg|int }} kg</td>
+        <td>{{ (o.total_distance_km ~ ' km') if o.total_distance_km else '—' }}</td>
+        <td><span class="tag {{ o.status }}">{{ o.status.replace('_',' ') }}</span></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">No orders yet. Place one from the Buyers page.</div>
+  {% endif %}
+</div>
+{% endblock %}

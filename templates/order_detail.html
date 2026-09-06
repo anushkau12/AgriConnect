@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Order #{{ order.id }} — AgriLogix{% endblock %}
+{% block content %}
+<h1>Order #{{ order.id }}</h1>
+<p><span class="tag {{ order.status }}">{{ order.status.replace('_',' ') }}</span></p>
+
+<div class="grid-2">
+  <div class="panel">
+    <h2>Order details</h2>
+    <table>
+      <tr><td>Buyer</td><td>{{ order.buyer.name }}</td></tr>
+      <tr><td>Crop</td><td>{{ order.crop_key }}</td></tr>
+      <tr><td>Quantity requested</td><td>{{ order.quantity_requested_kg }} kg</td></tr>
+      <tr><td>Transporter</td><td>{{ order.transporter.name if order.transporter else '—' }}</td></tr>
+      <tr><td>Total distance</td><td>{{ order.total_distance_km ~ ' km' if order.total_distance_km else '—' }}</td></tr>
+      <tr><td>Estimated cost</td><td>{{ '₹' ~ order.total_cost_estimate if order.total_cost_estimate else '—' }}</td></tr>
+    </table>
+
+    <h2 style="margin-top:26px;">Sourced from</h2>
+    {% if order.allocations %}
+    <table>
+      <thead><tr><th>Farmer</th><th>Qty allocated</th></tr></thead>
+      <tbody>
+      {% for a in order.allocations %}
+        <tr><td>{{ a.farmer.name }}</td><td>{{ a.allocated_qty_kg }} kg</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No farmers matched yet.</div>
+    {% endif %}
+
+    {% if order.status in ["route_planned","picked_up"] %}
+    <form id="advance-form" style="margin-top:20px;">
+      <input type="hidden" name="order_id" value="{{ order.id }}">
+      <label>Update delivery status</label>
+      <select name="status">
+        {% if order.status == "route_planned" %}<option value="picked_up">Picked up</option>{% endif %}
+        {% if order.status == "picked_up" %}<option value="delivered">Delivered</option>{% endif %}
+      </select>
+      <button type="submit">Update status</button>
+    </form>
+    {% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Optimized route</h2>
+    {% if route %}
+    <ul class="route-timeline">
+      {% for stop in route.ordered_stops %}
+      <li>
+        <span class="dot"></span>
+        <span class="stop-label">{{ stop.label }}</span>
+        {% if not loop.first %}<div class="leg">+{{ stop.leg_km }} km leg</div>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    <p style="margin-top:16px;"><strong>Total route distance:</strong> {{ route.total_distance_km }} km</p>
+    {% else %}
+    <div class="empty-state">Route not planned yet (waiting on farmer matching / transporter assignment).</div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+document.getElementById("advance-form")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = new FormData(e.target);
+  const res = await fetch(`/api/order/${form.get("order_id")}/status`, {
+    method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({status: form.get("status")}),
+  });
+  if (res.ok) location.reload();
+  else alert("Could not update status.");
+});
+</script>
+{% endblock %}
